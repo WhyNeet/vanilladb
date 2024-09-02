@@ -72,8 +72,8 @@ pub const COLLECTION_MAX_PAGES: usize = 100;
 pub const DOCUMENTS_PER_PAGE: usize = PAGE_SIZE / TOTAL_DOCUMENT_SIZE;
 
 pub struct Collection {
-    pub num_documents: usize,
-    pub pages: [*const Page; COLLECTION_MAX_PAGES],
+    num_documents: usize,
+    pages: [*const Page; COLLECTION_MAX_PAGES],
 }
 
 impl Collection {
@@ -84,7 +84,7 @@ impl Collection {
         }
     }
 
-    pub fn create_document_slot(&mut self) -> *mut [u8] {
+    fn create_document_slot(&mut self) -> *mut [u8] {
         let page_idx = self.num_documents / DOCUMENTS_PER_PAGE;
         let page = self.pages[page_idx as usize];
         let mut page = if page.is_null() {
@@ -99,6 +99,13 @@ impl Collection {
         let byte_offset = offset * TOTAL_DOCUMENT_SIZE;
 
         page.retrieve_document_slot(byte_offset) as *mut [u8]
+    }
+
+    pub fn insert_document(&mut self, document: &Document) {
+        let slot = self.create_document_slot();
+        self.num_documents += 1;
+
+        document.serialize(unsafe { slot.as_mut().unwrap() });
     }
 }
 
