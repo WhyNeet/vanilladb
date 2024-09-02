@@ -1,6 +1,7 @@
-use core::str;
 // example table entity
 use std::ptr;
+
+use core::str;
 
 pub const ID_SIZE: usize = 8; // 8 bytes for a 64-bit integer
 pub const USERNAME_SIZE: usize = 32;
@@ -87,18 +88,26 @@ impl Collection {
     fn create_document_slot(&mut self) -> *mut [u8] {
         let page_idx = self.num_documents / DOCUMENTS_PER_PAGE;
         let page = self.pages[page_idx as usize];
-        let mut page = if page.is_null() {
-            let page = Page::new();
-            self.pages[page_idx] = &page as *const Page;
-            page
+        let page = if page.is_null() {
+            // heap-allocate the page
+            let page = Box::new(Page::new());
+            let raw = Box::into_raw(page) as *const Page;
+            self.pages[page_idx] = raw;
+            raw
         } else {
-            unsafe { ptr::read(page) }
+            page
         };
+
+        let mut page = unsafe { Box::from_raw(page as *mut Page) };
 
         let offset = self.num_documents % DOCUMENTS_PER_PAGE;
         let byte_offset = offset * TOTAL_DOCUMENT_SIZE;
 
-        page.retrieve_document_slot(byte_offset) as *mut [u8]
+        let slot = page.retrieve_document_slot(byte_offset) as *mut [u8];
+
+        let _ = Box::into_raw(page);
+
+        slot
     }
 
     pub fn insert_document(&mut self, document: &Document) {
@@ -107,12 +116,38 @@ impl Collection {
 
         document.serialize(unsafe { slot.as_mut().unwrap() });
     }
+
+    pub fn retrieve_document(&self, id: u64) -> Option<Document> {
+        for page in self.pages {
+            if page.is_null() {
+                return None;
+            }
+
+            let page = unsafe { ptr::read(page) };
+            if let Some(doc) = page.find_by_id(id) {
+                return Some(doc);
+            }
+        }
+
+        None
+    }
+}
+
+impl Drop for Collection {
+    fn drop(&mut self) {
+        for page in self.pages {
+            if page.is_null() {
+                continue;
+            }
+            unsafe { drop(Box::from_raw(page.cast_mut())) };
+        }
+    }
 }
 
 pub const PAGE_SIZE: usize = 4096; // 4 KiB
 
 pub struct Page {
-    pub buffer: [u8; PAGE_SIZE],
+    buffer: [u8; PAGE_SIZE],
 }
 
 impl Page {
@@ -124,5 +159,26 @@ impl Page {
 
     pub fn retrieve_document_slot(&mut self, offset: usize) -> &mut [u8] {
         &mut self.buffer[offset..(offset + TOTAL_DOCUMENT_SIZE)]
+    }
+
+    pub fn find_by_id(&self, id: u64) -> Option<Document> {
+        for i in 0..DOCUMENTS_PER_PAGE {
+            let offset = i * TOTAL_DOCUMENT_SIZE;
+            let buf = &self.buffer[(offset)..(offset + TOTAL_DOCUMENT_SIZE)];
+            if buf[0..=ID_SIZE] == [0u8; ID_SIZE + 1] {
+                return None;
+            }
+            let mut document = Document {
+                id: 0,
+                username: [0u8; USERNAME_SIZE],
+                email: [0u8; EMAIL_SIZE],
+            };
+            document.deserialize(buf);
+            if document.id == id {
+                return Some(document);
+            }
+        }
+
+        None
     }
 }
