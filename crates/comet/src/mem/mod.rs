@@ -8,21 +8,21 @@ pub const EMAIL_SIZE: usize = 255;
 
 pub const TOTAL_DOCUMENT_SIZE: usize = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE;
 
-pub struct CollectionEntity {
+pub struct Document {
     pub id: u64,
     pub username: [u8; USERNAME_SIZE],
     pub email: [u8; EMAIL_SIZE],
 }
 
-impl CollectionEntity {
+impl Document {
     pub fn new(id: u64, username: &str, email: &str) -> Self {
         let mut username_bytes = [0u8; USERNAME_SIZE];
         let mut email_bytes = [0u8; EMAIL_SIZE];
 
-        unsafe { CollectionEntity::write_to_buffer(username.as_bytes(), &mut username_bytes, 0) };
-        unsafe { CollectionEntity::write_to_buffer(email.as_bytes(), &mut email_bytes, 0) };
+        unsafe { Document::write_to_buffer(username.as_bytes(), &mut username_bytes, 0) };
+        unsafe { Document::write_to_buffer(email.as_bytes(), &mut email_bytes, 0) };
 
-        CollectionEntity {
+        Document {
             id,
             username: username_bytes,
             email: email_bytes,
@@ -31,26 +31,24 @@ impl CollectionEntity {
 
     pub fn serialize(&self, dest: &mut [u8]) {
         let id = self.id.to_ne_bytes();
-        unsafe { CollectionEntity::write_to_buffer(&id, dest, 0) };
-        unsafe { CollectionEntity::write_to_buffer(&self.username, dest, ID_SIZE) }
-        unsafe { CollectionEntity::write_to_buffer(&self.email, dest, ID_SIZE + USERNAME_SIZE) }
+        unsafe { Document::write_to_buffer(&id, dest, 0) };
+        unsafe { Document::write_to_buffer(&self.username, dest, ID_SIZE) }
+        unsafe { Document::write_to_buffer(&self.email, dest, ID_SIZE + USERNAME_SIZE) }
     }
 
     pub fn deserialize(&mut self, src: &[u8]) {
         let mut id_buffer = [0u8; ID_SIZE];
-        unsafe { CollectionEntity::write_to_buffer(&src[..ID_SIZE], &mut id_buffer, 0) }
+        unsafe { Document::write_to_buffer(&src[..ID_SIZE], &mut id_buffer, 0) }
         self.id = u64::from_ne_bytes(id_buffer);
 
         unsafe {
-            CollectionEntity::write_to_buffer(
+            Document::write_to_buffer(
                 &src[ID_SIZE..(ID_SIZE + USERNAME_SIZE)],
                 &mut self.username,
                 0,
             )
         }
-        unsafe {
-            CollectionEntity::write_to_buffer(&src[(ID_SIZE + USERNAME_SIZE)..], &mut self.email, 0)
-        }
+        unsafe { Document::write_to_buffer(&src[(ID_SIZE + USERNAME_SIZE)..], &mut self.email, 0) }
     }
 
     pub fn display(&self) {
