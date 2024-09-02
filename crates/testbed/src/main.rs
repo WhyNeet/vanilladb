@@ -1,23 +1,12 @@
-use comet::mem::{CollectionEntity, TOTAL_DOCUMENT_SIZE};
+use comet::mem::{Collection, CollectionEntity};
 
 fn main() {
-    let entity = CollectionEntity::new(0, "whyneet", "example@example.com");
+    let mut collection = Collection::new();
 
-    println!("the original entity:");
-    entity.display();
+    let document = CollectionEntity::new(0, "whyneet", "example@example.com");
 
-    let mut output_buffer = [0u8; TOTAL_DOCUMENT_SIZE];
-    entity.serialize(&mut output_buffer);
+    let slot = collection.create_document_slot();
+    collection.num_documents += 1;
 
-    let mut new_entity = CollectionEntity {
-        id: 0,
-        username: [0u8; 32],
-        email: [0u8; 255],
-    };
-
-    new_entity.deserialize(&output_buffer);
-
-    println!("the deserialized entity:");
-
-    new_entity.display();
+    document.serialize(unsafe { slot.as_mut().unwrap() });
 }
