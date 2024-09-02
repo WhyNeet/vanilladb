@@ -1,3 +1,4 @@
+use core::str;
 // example table entity
 use std::ptr;
 
@@ -35,21 +36,31 @@ impl TableEntity {
         unsafe { TableEntity::write_to_buffer(&self.email, dest, ID_SIZE + USERNAME_SIZE) }
     }
 
-    pub fn deserialize(&mut self, dest: &[u8]) {
+    pub fn deserialize(&mut self, src: &[u8]) {
         let mut id_buffer = [0u8; ID_SIZE];
-        unsafe { TableEntity::write_to_buffer(&dest[..ID_SIZE], &mut id_buffer, 0) }
+        unsafe { TableEntity::write_to_buffer(&src[..ID_SIZE], &mut id_buffer, 0) }
         self.id = u64::from_ne_bytes(id_buffer);
 
         unsafe {
             TableEntity::write_to_buffer(
-                &dest[ID_SIZE..(ID_SIZE + USERNAME_SIZE)],
+                &src[ID_SIZE..(ID_SIZE + USERNAME_SIZE)],
                 &mut self.username,
                 0,
             )
         }
         unsafe {
-            TableEntity::write_to_buffer(&dest[(ID_SIZE + USERNAME_SIZE)..], &mut self.email, 0)
+            TableEntity::write_to_buffer(&src[(ID_SIZE + USERNAME_SIZE)..], &mut self.email, 0)
         }
+    }
+
+    pub fn display(&self) {
+        println!("-- table entity {} --", self.id);
+        println!("username: {}", unsafe {
+            str::from_utf8_unchecked(&self.username)
+        });
+        println!("email: {}", unsafe {
+            str::from_utf8_unchecked(&self.email)
+        });
     }
 
     unsafe fn write_to_buffer(from: &[u8], to: &mut [u8], offset: usize) {
