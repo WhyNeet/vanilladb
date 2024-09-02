@@ -71,11 +71,37 @@ impl CollectionEntity {
 }
 
 pub const COLLECTION_MAX_PAGES: usize = 100;
-pub const ENTITIES_PER_PAGE: usize = PAGE_SIZE / TOTAL_DOCUMENT_SIZE;
+pub const DOCUMENTS_PER_PAGE: usize = PAGE_SIZE / TOTAL_DOCUMENT_SIZE;
 
 pub struct Collection {
-    pub num_documents: u64,
-    pub pages: [Page; COLLECTION_MAX_PAGES],
+    pub num_documents: usize,
+    pub pages: [*const Page; COLLECTION_MAX_PAGES],
+}
+
+impl Collection {
+    pub fn new() -> Self {
+        Collection {
+            num_documents: 0,
+            pages: [ptr::null(); COLLECTION_MAX_PAGES],
+        }
+    }
+
+    pub fn create_document_slot(&mut self) -> *mut [u8] {
+        let page_idx = self.num_documents / DOCUMENTS_PER_PAGE;
+        let page = self.pages[page_idx as usize];
+        let mut page = if page.is_null() {
+            let page = Page::new();
+            self.pages[page_idx] = &page as *const Page;
+            page
+        } else {
+            unsafe { ptr::read(page) }
+        };
+
+        let offset = self.num_documents % DOCUMENTS_PER_PAGE;
+        let byte_offset = offset * TOTAL_DOCUMENT_SIZE;
+
+        page.retrieve_document_slot(byte_offset) as *mut [u8]
+    }
 }
 
 pub const PAGE_SIZE: usize = 4096; // 4 KiB
@@ -89,5 +115,9 @@ impl Page {
         Page {
             buffer: [0u8; PAGE_SIZE],
         }
+    }
+
+    pub fn retrieve_document_slot(&mut self, offset: usize) -> &mut [u8] {
+        &mut self.buffer[offset..(offset + TOTAL_DOCUMENT_SIZE)]
     }
 }
