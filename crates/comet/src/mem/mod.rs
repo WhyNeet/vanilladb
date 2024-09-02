@@ -1,7 +1,7 @@
 // example table entity
 use std::ptr;
 
-pub const ID_SIZE: usize = 8; // 8 bytes
+pub const ID_SIZE: usize = 8; // 8 bytes for a 64-bit integer
 pub const USERNAME_SIZE: usize = 32;
 pub const EMAIL_SIZE: usize = 255;
 
@@ -33,6 +33,23 @@ impl TableEntity {
         unsafe { TableEntity::write_to_buffer(&id, dest, 0) };
         unsafe { TableEntity::write_to_buffer(&self.username, dest, ID_SIZE) }
         unsafe { TableEntity::write_to_buffer(&self.email, dest, ID_SIZE + USERNAME_SIZE) }
+    }
+
+    pub fn deserialize(&mut self, dest: &[u8]) {
+        let mut id_buffer = [0u8; ID_SIZE];
+        unsafe { TableEntity::write_to_buffer(&dest[..ID_SIZE], &mut id_buffer, 0) }
+        self.id = u64::from_ne_bytes(id_buffer);
+
+        unsafe {
+            TableEntity::write_to_buffer(
+                &dest[ID_SIZE..(ID_SIZE + USERNAME_SIZE)],
+                &mut self.username,
+                0,
+            )
+        }
+        unsafe {
+            TableEntity::write_to_buffer(&dest[(ID_SIZE + USERNAME_SIZE)..], &mut self.email, 0)
+        }
     }
 
     unsafe fn write_to_buffer(from: &[u8], to: &mut [u8], offset: usize) {
