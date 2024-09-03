@@ -9,7 +9,7 @@ use std::{
     ptr,
 };
 
-use libc::{close, open, pwrite, O_DIRECT, O_SYNC, O_WRONLY};
+use libc::{close, open, pread, pwrite, O_DIRECT, O_RDONLY, O_SYNC, O_WRONLY};
 
 pub const ID_SIZE: usize = 8; // 8 bytes for a 64-bit integer
 pub const USERNAME_SIZE: usize = 32;
@@ -335,5 +335,90 @@ impl Comet {
         }
 
         Ok(())
+    }
+
+    pub fn load(&mut self) -> io::Result<()> {
+        let db_files = Path::new(&self.data_dir)
+            .read_dir()?
+            .map(|f| f.unwrap().file_name())
+            .map(|name| {
+                name.to_string_lossy()
+                    .rsplit_once(".")
+                    .unwrap()
+                    .0
+                    .to_string()
+            });
+
+        for db in db_files {
+            self.load_db(db);
+        }
+
+        Ok(())
+    }
+
+    fn load_db(&mut self, name: String) {
+        let file_path = CString::new(format!("{}.comet", name)).unwrap();
+        let descriptor = unsafe { open(file_path.as_ptr(), O_SYNC | O_DIRECT | O_RDONLY) };
+
+        let mut collections: Vec<Collection> = Vec::new();
+
+        let mut byte_offset = 0;
+        loop {
+            let collection_header = [0u8; PAGE_SIZE];
+            let read = unsafe {
+                pread(
+                    descriptor,
+                    collection_header.as_ptr() as *mut c_void,
+                    PAGE_SIZE,
+                    byte_offset,
+                )
+            };
+
+            if read <= 0 {
+                break;
+            }
+
+            byte_offset += read as i64;
+            let pages = collection_header[0];
+            let name = String::from_utf8_lossy(&collection_header[1..]);
+            let mut page_ptrs: Vec<Box<Page>> = Vec::new();
+
+            for idx in 0..pages {
+                let page = Box::new(Page {
+                    buffer: [0u8; PAGE_SIZE],
+                });
+                let read = unsafe {
+                    pread(
+                        descriptor,
+                        page.buffer.as_ptr() as *mut c_void,
+                        PAGE_SIZE,
+                        byte_offset,
+                    )
+                };
+
+                byte_offset += read as i64;
+
+                page_ptrs.push(page);
+            }
+
+            let collection = Collection {
+                name: name.to_string(),
+                num_documents: 0,
+                pages: {
+                    let mut buf: [*const Page; COLLECTION_MAX_PAGES] =
+                        [ptr::null(); COLLECTION_MAX_PAGES];
+                    for (idx, page) in page_ptrs.into_iter().enumerate() {
+                        let raw = Box::into_raw(page) as *const Page;
+                        buf[idx] = raw;
+                    }
+
+                    buf
+                },
+            };
+
+            collections.push(collection);
+        }
+
+        self.databases.push(Database { collections, name });
     }
 }
