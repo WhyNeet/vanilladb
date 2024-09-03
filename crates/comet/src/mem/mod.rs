@@ -75,13 +75,15 @@ pub const DOCUMENTS_PER_PAGE: usize = PAGE_SIZE / TOTAL_DOCUMENT_SIZE;
 pub struct Collection {
     num_documents: usize,
     pages: [*const Page; COLLECTION_MAX_PAGES],
+    name: String,
 }
 
 impl Collection {
-    pub fn new() -> Self {
+    pub fn new(name: String) -> Self {
         Collection {
             num_documents: 0,
             pages: [ptr::null(); COLLECTION_MAX_PAGES],
+            name,
         }
     }
 
@@ -180,5 +182,29 @@ impl Page {
         }
 
         None
+    }
+}
+
+pub struct Database {
+    collections: Vec<Collection>,
+    name: String,
+}
+
+impl Database {
+    pub fn new(name: String) -> Self {
+        Self {
+            name,
+            collections: Vec::new(),
+        }
+    }
+
+    pub fn create_collection(&mut self, name: String) -> &mut Collection {
+        let collection = Collection::new(name);
+        self.collections.push(collection);
+        self.collections.last_mut().unwrap()
+    }
+
+    pub fn collection(&self, name: String) -> Option<&Collection> {
+        self.collections.iter().find(|c| c.name == name)
     }
 }
