@@ -1,7 +1,9 @@
-use comet::mem::{Collection, Document};
+use comet::mem::{Database, Document};
 
 fn main() {
-    let mut collection = Collection::new();
+    let mut database = Database::new("primary".to_string());
+
+    let collection = database.create_collection("users".to_string());
 
     let document1 = Document::new(0, "whyneet", "example@example.com");
     let document2 = Document::new(1, "test", "test@gmail.com");
