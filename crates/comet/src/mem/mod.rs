@@ -1,7 +1,7 @@
 // example table entity
-use std::ptr;
-
 use core::str;
+use libc::{c_void, close, open, posix_memalign, pwrite, O_CREAT, O_DIRECT, O_RDWR, O_TRUNC};
+use std::{ffi::CString, fs, io, path::Path, ptr};
 
 pub const ID_SIZE: usize = 8; // 8 bytes for a 64-bit integer
 pub const USERNAME_SIZE: usize = 32;
@@ -206,5 +206,41 @@ impl Database {
 
     pub fn collection(&self, name: String) -> Option<&Collection> {
         self.collections.iter().find(|c| c.name == name)
+    }
+}
+
+pub struct Comet {
+    data_dir: String,
+    databases: Vec<Database>,
+}
+
+impl Comet {
+    pub fn new(data_dir: String) -> Self {
+        Comet {
+            data_dir,
+            databases: Vec::new(),
+        }
+    }
+
+    pub fn initialize(&self) -> io::Result<()> {
+        fs::create_dir_all(Path::new(&self.data_dir))
+    }
+
+    pub fn create_database(&mut self, name: String) -> &mut Database {
+        let database = Database::new(name);
+        self.create_db_file(&database).unwrap();
+        self.databases.push(database);
+        self.databases.last_mut().unwrap()
+    }
+
+    fn create_db_file(&self, database: &Database) -> io::Result<()> {
+        let file_name = format!("{}/{}.comet", self.data_dir, database.name);
+        let file_path = Path::new(&file_name);
+        if !file_path.exists() {
+            fs::File::create_new(file_path)?;
+            Ok(())
+        } else {
+            Ok(())
+        }
     }
 }
