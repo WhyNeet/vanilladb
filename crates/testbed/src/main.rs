@@ -1,7 +1,10 @@
-use comet::mem::{Database, Document};
+use comet::mem::{Comet, Document};
 
 fn main() {
-    let mut database = Database::new("primary".to_string());
+    let mut comet = Comet::new(".comet_data".to_string());
+    comet.initialize().unwrap();
+
+    let database = comet.create_database("primary".to_string());
 
     let collection = database.create_collection("users".to_string());
 
