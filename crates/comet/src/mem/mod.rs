@@ -1,7 +1,15 @@
 // example table entity
 use core::str;
-use libc::{c_void, close, open, posix_memalign, pwrite, O_CREAT, O_DIRECT, O_RDWR, O_TRUNC};
-use std::{ffi::CString, fs, io, path::Path, ptr};
+use std::{
+    ffi::{c_void, CString},
+    fs,
+    io::{self, Error},
+    os::fd::RawFd,
+    path::Path,
+    ptr,
+};
+
+use libc::{close, open, pwrite, O_DIRECT, O_SYNC, O_WRONLY};
 
 pub const ID_SIZE: usize = 8; // 8 bytes for a 64-bit integer
 pub const USERNAME_SIZE: usize = 32;
@@ -133,6 +141,14 @@ impl Collection {
 
         None
     }
+
+    pub fn pages(&self) -> Vec<&Page> {
+        self.pages
+            .iter()
+            .take_while(|page| !page.is_null())
+            .map(|page| unsafe { page.as_ref().unwrap() })
+            .collect()
+    }
 }
 
 impl Drop for Collection {
@@ -207,6 +223,10 @@ impl Database {
     pub fn collection(&self, name: String) -> Option<&Collection> {
         self.collections.iter().find(|c| c.name == name)
     }
+
+    pub fn collections(&self) -> &[Collection] {
+        &self.collections
+    }
 }
 
 pub struct Comet {
@@ -233,8 +253,12 @@ impl Comet {
         self.databases.last_mut().unwrap()
     }
 
+    fn db_file_name(&self, db: &Database) -> String {
+        format!("{}/{}.comet", self.data_dir, db.name)
+    }
+
     fn create_db_file(&self, database: &Database) -> io::Result<()> {
-        let file_name = format!("{}/{}.comet", self.data_dir, database.name);
+        let file_name = self.db_file_name(database);
         let file_path = Path::new(&file_name);
         if !file_path.exists() {
             fs::File::create_new(file_path)?;
@@ -242,5 +266,74 @@ impl Comet {
         } else {
             Ok(())
         }
+    }
+
+    pub fn flush(&self) -> io::Result<()> {
+        for database in self.databases.iter() {
+            self.flush_db(database)?
+        }
+
+        Ok(())
+    }
+
+    /// Direct I/O database flush
+    fn flush_db(&self, database: &Database) -> io::Result<()> {
+        let file_path = CString::new(self.db_file_name(database)).unwrap();
+        let descriptor: RawFd = unsafe { open(file_path.as_ptr(), O_SYNC | O_DIRECT | O_WRONLY) };
+
+        if descriptor < 0 {
+            return Err(Error::last_os_error());
+        }
+
+        let mut bytes_written = 0;
+
+        for collection in database.collections() {
+            let pages = collection.pages();
+            let mut collection_header = [0u8; PAGE_SIZE];
+            // u8 will fit the max pages limit
+            collection_header[0] = pages.len() as u8;
+            // write collection name
+            unsafe {
+                ptr::copy_nonoverlapping(
+                    collection.name.as_bytes().as_ptr() as *const u8,
+                    collection_header[1..].as_mut_ptr() as *mut u8,
+                    collection.name.len(),
+                );
+            }
+            let written = unsafe {
+                pwrite(
+                    descriptor,
+                    collection_header.as_ptr() as *const c_void,
+                    PAGE_SIZE,
+                    bytes_written,
+                )
+            };
+            if written < 0 {
+                unsafe { close(descriptor) };
+                return Err(Error::last_os_error());
+            }
+            bytes_written += written as i64;
+            for page in pages {
+                let written = unsafe {
+                    pwrite(
+                        descriptor,
+                        page.buffer.as_ptr() as *const c_void,
+                        PAGE_SIZE,
+                        bytes_written,
+                    )
+                };
+                if written < 0 {
+                    unsafe { close(descriptor) };
+                    return Err(Error::last_os_error());
+                }
+                bytes_written += written as i64;
+            }
+        }
+
+        unsafe {
+            close(descriptor);
+        }
+
+        Ok(())
     }
 }
