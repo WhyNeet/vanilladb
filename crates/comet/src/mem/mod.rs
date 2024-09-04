@@ -39,7 +39,7 @@ impl Document {
     }
 
     pub fn serialize(&self, dest: &mut [u8]) {
-        let id = self.id.to_ne_bytes();
+        let id = self.id.to_be_bytes();
         unsafe { Document::write_to_buffer(&id, dest, 0) };
         unsafe { Document::write_to_buffer(&self.username, dest, ID_SIZE) }
         unsafe { Document::write_to_buffer(&self.email, dest, ID_SIZE + USERNAME_SIZE) }
@@ -306,7 +306,7 @@ impl Comet {
         for collection in database.collections() {
             let pages = collection.pages();
             let mut collection_header = [0u8; PAGE_SIZE];
-            let pages_len = (pages.len() as u64).to_ne_bytes();
+            let pages_len = (pages.len() as u64).to_be_bytes();
             unsafe {
                 ptr::copy_nonoverlapping(
                     pages_len.as_ptr(),
@@ -409,7 +409,7 @@ impl Comet {
                     8,
                 )
             };
-            let pages = u64::from_ne_bytes(pages);
+            let pages = u64::from_be_bytes(pages);
             let name = {
                 let mut len = 0;
                 while collection_header[8 + len] != b'\0' {
