@@ -431,5 +431,9 @@ impl Comet {
         }
 
         self.databases.push(Database { collections, name });
+
+        unsafe {
+            close(descriptor);
+        }
     }
 }
