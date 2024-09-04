@@ -80,11 +80,12 @@ impl Document {
 pub const COLLECTION_MAX_PAGES: usize = 100;
 pub const DOCUMENTS_PER_PAGE: usize = PAGE_SIZE / TOTAL_DOCUMENT_SIZE;
 
-#[derive(Debug)]
 pub struct Collection {
     num_documents: usize,
     pages: [*const Page; COLLECTION_MAX_PAGES],
     name: String,
+    page_loader: Option<Box<dyn Fn(u8) -> [u8; PAGE_SIZE]>>,
+    num_pages: u8,
 }
 
 impl Collection {
@@ -93,6 +94,8 @@ impl Collection {
             num_documents: 0,
             pages: [ptr::null(); COLLECTION_MAX_PAGES],
             name,
+            page_loader: None,
+            num_pages: 0,
         }
     }
 
@@ -104,6 +107,7 @@ impl Collection {
             let page = Box::new(Page::new());
             let raw = Box::into_raw(page) as *const Page;
             self.pages[page_idx] = raw;
+            self.num_pages += 1;
             raw
         } else {
             page
@@ -128,13 +132,20 @@ impl Collection {
         document.serialize(unsafe { slot.as_mut().unwrap() });
     }
 
-    pub fn retrieve_document(&self, id: u64) -> Option<Document> {
-        for page in self.pages {
+    pub fn retrieve_document(&mut self, id: u64) -> Option<Document> {
+        for idx in 0..self.num_pages {
+            let page = self.pages[idx as usize] as *mut Page;
             if page.is_null() {
-                return None;
+                if self.page_loader.is_none() {
+                    return None;
+                }
+
+                let buffer = self.page_loader.as_ref().unwrap()(idx);
+                let page_read = Box::new(Page { buffer });
+                self.pages[idx as usize] = Box::into_raw(page_read);
             }
 
-            let page = unsafe { ptr::read(page) };
+            let page = unsafe { ptr::read(self.pages[idx as usize] as *mut Page) };
             if let Some(doc) = page.find_by_id(id) {
                 return Some(doc);
             }
@@ -221,8 +232,8 @@ impl Database {
         self.collections.last_mut().unwrap()
     }
 
-    pub fn collection(&self, name: &str) -> Option<&Collection> {
-        self.collections.iter().find(|c| c.name == name)
+    pub fn collection(&mut self, name: &str) -> Option<&mut Collection> {
+        self.collections.iter_mut().find(|c| c.name == name)
     }
 
     pub fn collections(&self) -> &[Collection] {
@@ -391,49 +402,33 @@ impl Comet {
                     len += 1;
                 }
                 String::from_utf8_lossy(&collection_header[1..(len + 1)])
-            };
-            let mut page_ptrs: Vec<Box<Page>> = Vec::new();
-
-            for idx in 0..pages {
-                let page = Box::new(Page {
-                    buffer: [0u8; PAGE_SIZE],
-                });
-                let read = unsafe {
-                    pread(
-                        descriptor,
-                        page.buffer.as_ptr() as *mut c_void,
-                        PAGE_SIZE,
-                        byte_offset,
-                    )
-                };
-
-                byte_offset += read as i64;
-
-                page_ptrs.push(page);
             }
+            .to_string();
 
             let collection = Collection {
                 name: name.to_string(),
                 num_documents: 0,
-                pages: {
-                    let mut buf: [*const Page; COLLECTION_MAX_PAGES] =
-                        [ptr::null(); COLLECTION_MAX_PAGES];
-                    for (idx, page) in page_ptrs.into_iter().enumerate() {
-                        let raw = Box::into_raw(page) as *const Page;
-                        buf[idx] = raw;
-                    }
+                pages: [ptr::null(); COLLECTION_MAX_PAGES],
+                num_pages: pages,
+                page_loader: Some(Box::new(move |idx| {
+                    let page = [0u8; PAGE_SIZE];
+                    unsafe {
+                        pread(
+                            descriptor,
+                            page.as_ptr() as *mut c_void,
+                            PAGE_SIZE,
+                            byte_offset + (idx as i64 * PAGE_SIZE as i64),
+                        )
+                    };
 
-                    buf
-                },
+                    page
+                })),
             };
+            byte_offset += (pages as i64) * PAGE_SIZE as i64;
 
             collections.push(collection);
         }
 
         self.databases.push(Database { collections, name });
-
-        unsafe {
-            close(descriptor);
-        }
     }
 }
