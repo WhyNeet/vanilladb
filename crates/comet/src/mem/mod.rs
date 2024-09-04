@@ -253,6 +253,10 @@ impl Comet {
         self.databases.last_mut().unwrap()
     }
 
+    pub fn database(&mut self, name: String) -> Option<&mut Database> {
+        self.databases.iter_mut().find(|db| db.name == name)
+    }
+
     fn db_file_name(&self, db: &Database) -> String {
         format!("{}/{}.comet", self.data_dir, db.name)
     }
