@@ -1,4 +1,4 @@
-use comet::mem::{Comet, Document};
+use comet::{comet::Comet, document::Document};
 
 fn main() {
     println!("--- writing data ---");
@@ -15,7 +15,7 @@ fn write_data() {
     let database = comet.create_database("primary".to_string());
     let collection = database.create_collection("users".to_string());
 
-    for i in 0..10000 {
+    for i in 0..1000 {
         collection.insert_document(&Document::new(
             i,
             &format!("user {i}"),
@@ -34,7 +34,7 @@ fn read_data() {
     let database = comet.database("primary").unwrap();
     let collection = database.collection("users").unwrap();
 
-    let document_id = 100;
+    let document_id = 1;
     let stored_document = collection.retrieve_document(document_id);
     if let Some(doc) = stored_document {
         println!("Document stored with id: {document_id}");
