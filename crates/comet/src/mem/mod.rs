@@ -3,7 +3,7 @@ use core::str;
 use std::{
     ffi::{c_void, CString},
     fs,
-    io::{self, BufRead, BufReader, Error},
+    io::{self, Error},
     os::fd::RawFd,
     path::Path,
     ptr,
@@ -11,7 +11,7 @@ use std::{
 
 use libc::{close, open, pread, pwrite, O_DIRECT, O_RDONLY, O_SYNC, O_WRONLY};
 
-pub const ID_SIZE: usize = 8; // 8 bytes for a 64-bit integer
+pub const ID_SIZE: usize = 8; // 8 bytes for a 64-bit unsigned integer
 pub const USERNAME_SIZE: usize = 32;
 pub const EMAIL_SIZE: usize = 255;
 
@@ -77,15 +77,15 @@ impl Document {
     }
 }
 
-pub const COLLECTION_MAX_PAGES: usize = 100;
+pub const COLLECTION_MAX_PAGES: usize = 1000;
 pub const DOCUMENTS_PER_PAGE: usize = PAGE_SIZE / TOTAL_DOCUMENT_SIZE;
 
 pub struct Collection {
     num_documents: usize,
     pages: [*const Page; COLLECTION_MAX_PAGES],
     name: String,
-    page_loader: Option<Box<dyn Fn(u8) -> [u8; PAGE_SIZE]>>,
-    num_pages: u8,
+    page_loader: Option<Box<dyn Fn(u64) -> [u8; PAGE_SIZE]>>,
+    num_pages: u64,
 }
 
 impl Collection {
@@ -306,13 +306,19 @@ impl Comet {
         for collection in database.collections() {
             let pages = collection.pages();
             let mut collection_header = [0u8; PAGE_SIZE];
-            // u8 will fit the max pages limit
-            collection_header[0] = pages.len() as u8;
+            let pages_len = (pages.len() as u64).to_ne_bytes();
+            unsafe {
+                ptr::copy_nonoverlapping(
+                    pages_len.as_ptr(),
+                    &mut collection_header as *mut u8,
+                    pages_len.len(),
+                )
+            };
             // write collection name
             unsafe {
                 ptr::copy_nonoverlapping(
                     collection.name.as_bytes().as_ptr() as *const u8,
-                    collection_header[1..].as_mut_ptr() as *mut u8,
+                    collection_header[(pages_len.len())..].as_mut_ptr() as *mut u8,
                     collection.name.len(),
                 );
             }
@@ -395,13 +401,21 @@ impl Comet {
             }
 
             byte_offset += read as i64;
-            let pages = collection_header[0];
+            let mut pages = [0u8; 8];
+            unsafe {
+                ptr::copy_nonoverlapping(
+                    &collection_header[0..8] as *const [u8] as *const u8,
+                    &mut pages as *mut [u8; 8] as *mut u8,
+                    8,
+                )
+            };
+            let pages = u64::from_ne_bytes(pages);
             let name = {
                 let mut len = 0;
-                while collection_header[1 + len] != b'\0' {
+                while collection_header[8 + len] != b'\0' {
                     len += 1;
                 }
-                String::from_utf8_lossy(&collection_header[1..(len + 1)])
+                String::from_utf8_lossy(&collection_header[8..(len + 8)])
             }
             .to_string();
 
