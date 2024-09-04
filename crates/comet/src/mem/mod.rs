@@ -3,7 +3,7 @@ use core::str;
 use std::{
     ffi::{c_void, CString},
     fs,
-    io::{self, Error},
+    io::{self, BufRead, BufReader, Error},
     os::fd::RawFd,
     path::Path,
     ptr,
@@ -80,6 +80,7 @@ impl Document {
 pub const COLLECTION_MAX_PAGES: usize = 100;
 pub const DOCUMENTS_PER_PAGE: usize = PAGE_SIZE / TOTAL_DOCUMENT_SIZE;
 
+#[derive(Debug)]
 pub struct Collection {
     num_documents: usize,
     pages: [*const Page; COLLECTION_MAX_PAGES],
@@ -220,7 +221,7 @@ impl Database {
         self.collections.last_mut().unwrap()
     }
 
-    pub fn collection(&self, name: String) -> Option<&Collection> {
+    pub fn collection(&self, name: &str) -> Option<&Collection> {
         self.collections.iter().find(|c| c.name == name)
     }
 
@@ -253,7 +254,7 @@ impl Comet {
         self.databases.last_mut().unwrap()
     }
 
-    pub fn database(&mut self, name: String) -> Option<&mut Database> {
+    pub fn database(&mut self, name: &str) -> Option<&mut Database> {
         self.databases.iter_mut().find(|db| db.name == name)
     }
 
@@ -361,7 +362,7 @@ impl Comet {
     }
 
     fn load_db(&mut self, name: String) {
-        let file_path = CString::new(format!("{}.comet", name)).unwrap();
+        let file_path = CString::new(format!("{}/{name}.comet", self.data_dir)).unwrap();
         let descriptor = unsafe { open(file_path.as_ptr(), O_SYNC | O_DIRECT | O_RDONLY) };
 
         let mut collections: Vec<Collection> = Vec::new();
@@ -384,7 +385,13 @@ impl Comet {
 
             byte_offset += read as i64;
             let pages = collection_header[0];
-            let name = String::from_utf8_lossy(&collection_header[1..]);
+            let name = {
+                let mut len = 0;
+                while collection_header[1 + len] != b'\0' {
+                    len += 1;
+                }
+                String::from_utf8_lossy(&collection_header[1..(len + 1)])
+            };
             let mut page_ptrs: Vec<Box<Page>> = Vec::new();
 
             for idx in 0..pages {
