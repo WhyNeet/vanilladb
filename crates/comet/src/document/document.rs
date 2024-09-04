@@ -34,7 +34,7 @@ impl Document {
     pub fn deserialize(&mut self, src: &[u8]) {
         let mut id_buffer = [0u8; ID_SIZE];
         unsafe { Document::write_to_buffer(&src[..ID_SIZE], &mut id_buffer, 0) }
-        self.id = u64::from_ne_bytes(id_buffer);
+        self.id = u64::from_be_bytes(id_buffer);
 
         unsafe {
             Document::write_to_buffer(
