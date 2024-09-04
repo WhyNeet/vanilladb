@@ -29,12 +29,15 @@ fn read_data() {
     comet.initialize().unwrap();
     comet.load().unwrap();
 
-    // let document_id = 1;
-    // let stored_document = collection.retrieve_document(document_id);
-    // if let Some(doc) = stored_document {
-    //     println!("Document stored with id: {document_id}");
-    //     doc.display();
-    // } else {
-    //     println!("No document with id: {document_id}");
-    // }
+    let database = comet.database("primary").unwrap();
+    let collection = database.collection("users").unwrap();
+
+    let document_id = 1;
+    let stored_document = collection.retrieve_document(document_id);
+    if let Some(doc) = stored_document {
+        println!("Document stored with id: {document_id}");
+        doc.display();
+    } else {
+        println!("No document with id: {document_id}");
+    }
 }
