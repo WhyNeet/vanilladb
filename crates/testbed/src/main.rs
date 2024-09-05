@@ -1,4 +1,8 @@
-use comet::{comet::Comet, document::Document};
+use comet::{
+    comet::Comet,
+    document::Document,
+    io::{direct::direct_io::DirectIO, io_config::IOConfig},
+};
 
 fn main() {
     println!("--- writing data ---");
@@ -9,7 +13,10 @@ fn main() {
 }
 
 fn write_data() {
-    let mut comet = Comet::new(".comet_data".to_string());
+    let config = IOConfig::builder()
+        .data_dir(".comet_data".to_string())
+        .build();
+    let mut comet = Comet::new(DirectIO::new(config));
     comet.initialize().unwrap();
 
     let database = comet.create_database("primary".to_string());
@@ -27,7 +34,10 @@ fn write_data() {
 }
 
 fn read_data() {
-    let mut comet = Comet::new(".comet_data".to_string());
+    let config = IOConfig::builder()
+        .data_dir(".comet_data".to_string())
+        .build();
+    let mut comet = Comet::new(DirectIO::new(config));
     comet.initialize().unwrap();
     comet.load().unwrap();
 
