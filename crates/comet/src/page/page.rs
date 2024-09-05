@@ -8,17 +8,17 @@ use crate::document::{
 use super::constants::{DOCUMENTS_PER_PAGE, PAGE_SIZE};
 
 pub struct Page {
-    buffer: [u8; PAGE_SIZE],
+    buffer: Box<[u8; PAGE_SIZE]>,
 }
 
 impl Page {
     pub fn new() -> Self {
         Page {
-            buffer: [0u8; PAGE_SIZE],
+            buffer: Box::new([0u8; PAGE_SIZE]),
         }
     }
 
-    pub fn with_buffer(buffer: [u8; PAGE_SIZE]) -> Self {
+    pub fn with_buffer(buffer: Box<[u8; PAGE_SIZE]>) -> Self {
         Self { buffer }
     }
 

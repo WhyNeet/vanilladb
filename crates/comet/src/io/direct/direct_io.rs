@@ -10,7 +10,7 @@ use std::{
 use libc::{close, open, pread, pwrite, O_CREAT, O_DIRECT, O_RDONLY, O_SYNC, O_WRONLY};
 
 use crate::{
-    collection::{Collection, COLLECTION_MAX_PAGES},
+    collection::Collection,
     database::Database,
     io::{comet_io::CometIO, io_config::IOConfig},
     page::PAGE_SIZE,
@@ -189,7 +189,7 @@ impl CometIO for DirectIO {
 
             let collection = Collection::custom(
                 num_documents as usize,
-                [ptr::null(); COLLECTION_MAX_PAGES],
+                Vec::new(),
                 name.to_string(),
                 Some(Box::new(move |idx| {
                     let page = [0u8; PAGE_SIZE];

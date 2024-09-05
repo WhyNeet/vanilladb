@@ -1,5 +1,3 @@
-use std::ptr;
-
 use crate::{
     document::{constants::TOTAL_DOCUMENT_SIZE, document::Document},
     page::{
@@ -8,11 +6,9 @@ use crate::{
     },
 };
 
-pub const COLLECTION_MAX_PAGES: usize = 1000;
-
 pub struct Collection {
     num_documents: usize,
-    pages: [*const Page; COLLECTION_MAX_PAGES],
+    pages: Vec<Page>,
     name: String,
     page_loader: Option<Box<dyn Fn(u64) -> [u8; PAGE_SIZE]>>,
     num_pages: u64,
@@ -22,7 +18,7 @@ impl Collection {
     pub fn new(name: String) -> Self {
         Collection {
             num_documents: 0,
-            pages: [ptr::null(); COLLECTION_MAX_PAGES],
+            pages: Vec::new(),
             name,
             page_loader: None,
             num_pages: 0,
@@ -31,7 +27,7 @@ impl Collection {
 
     pub fn custom(
         num_documents: usize,
-        pages: [*const Page; COLLECTION_MAX_PAGES],
+        pages: Vec<Page>,
         name: String,
         page_loader: Option<Box<dyn Fn(u64) -> [u8; PAGE_SIZE]>>,
         num_pages: u64,
@@ -47,26 +43,18 @@ impl Collection {
 
     fn create_document_slot(&mut self) -> *mut [u8] {
         let page_idx = self.num_documents / DOCUMENTS_PER_PAGE;
-        let page = self.pages[page_idx as usize];
-        let page = if page.is_null() {
-            // heap-allocate the page
-            let page = Box::new(Page::new());
-            let raw = Box::into_raw(page) as *const Page;
-            self.pages[page_idx] = raw;
-            self.num_pages += 1;
-            raw
-        } else {
+        let page = if let Some(page) = self.pages.get_mut(page_idx) {
             page
+        } else {
+            let page = Page::new();
+            self.pages.push(page);
+            self.pages.last_mut().unwrap()
         };
-
-        let mut page = unsafe { Box::from_raw(page as *mut Page) };
 
         let offset = self.num_documents % DOCUMENTS_PER_PAGE;
         let byte_offset = offset * TOTAL_DOCUMENT_SIZE;
 
         let slot = page.retrieve_document_slot(byte_offset) as *mut [u8];
-
-        let _ = Box::into_raw(page);
 
         slot
     }
@@ -80,18 +68,19 @@ impl Collection {
 
     pub fn retrieve_document(&mut self, id: u64) -> Option<Document> {
         for idx in 0..self.num_pages {
-            let page = self.pages[idx as usize] as *mut Page;
-            if page.is_null() {
+            let page = if let Some(page) = self.pages.get(idx as usize) {
+                page
+            } else {
                 if self.page_loader.is_none() {
                     return None;
                 }
 
                 let buffer = self.page_loader.as_ref().unwrap()(idx);
-                let page_read = Box::new(Page::with_buffer(buffer));
-                self.pages[idx as usize] = Box::into_raw(page_read);
-            }
+                let page = Page::with_buffer(Box::new(buffer));
+                self.pages.push(page);
+                self.pages.last().unwrap()
+            };
 
-            let page = unsafe { ptr::read(self.pages[idx as usize] as *mut Page) };
             if let Some(doc) = page.find_by_id(id) {
                 return Some(doc);
             }
@@ -101,11 +90,7 @@ impl Collection {
     }
 
     pub fn pages(&self) -> Vec<&Page> {
-        self.pages
-            .iter()
-            .take_while(|page| !page.is_null())
-            .map(|page| unsafe { page.as_ref().unwrap() })
-            .collect()
+        self.pages.iter().collect()
     }
 
     pub fn name(&self) -> &str {
@@ -114,16 +99,5 @@ impl Collection {
 
     pub fn num_documents(&self) -> u64 {
         self.num_documents as u64
-    }
-}
-
-impl Drop for Collection {
-    fn drop(&mut self) {
-        for page in self.pages {
-            if page.is_null() {
-                continue;
-            }
-            unsafe { drop(Box::from_raw(page.cast_mut())) };
-        }
     }
 }
