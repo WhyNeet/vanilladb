@@ -7,8 +7,8 @@ impl IOConfig {
         IOConfigBuilder::new()
     }
 
-    pub fn data_dir(&self) -> &str {
-        &self.data_dir
+    pub fn data_dir(&self) -> Box<str> {
+        Box::from(self.data_dir.as_str())
     }
 }
 
@@ -21,7 +21,7 @@ impl IOConfigBuilder {
         Self { data_dir: None }
     }
 
-    pub fn data_dir(&mut self, data_dir: String) -> &mut Self {
+    pub fn data_dir(mut self, data_dir: String) -> Self {
         self.data_dir = Some(data_dir);
         self
     }

@@ -25,7 +25,7 @@ impl Document {
     }
 
     pub fn serialize(&self, dest: &mut [u8]) {
-        let id = self.id.to_be_bytes();
+        let id = self.id.to_le_bytes();
         unsafe { Document::write_to_buffer(&id, dest, 0) };
         unsafe { Document::write_to_buffer(&self.username, dest, ID_SIZE) }
         unsafe { Document::write_to_buffer(&self.email, dest, ID_SIZE + USERNAME_SIZE) }
@@ -34,7 +34,7 @@ impl Document {
     pub fn deserialize(&mut self, src: &[u8]) {
         let mut id_buffer = [0u8; ID_SIZE];
         unsafe { Document::write_to_buffer(&src[..ID_SIZE], &mut id_buffer, 0) }
-        self.id = u64::from_be_bytes(id_buffer);
+        self.id = u64::from_le_bytes(id_buffer);
 
         unsafe {
             Document::write_to_buffer(

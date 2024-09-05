@@ -111,6 +111,10 @@ impl Collection {
     pub fn name(&self) -> &str {
         &self.name
     }
+
+    pub fn num_documents(&self) -> u64 {
+        self.num_documents as u64
+    }
 }
 
 impl Drop for Collection {
