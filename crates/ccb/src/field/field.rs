@@ -137,6 +137,13 @@ impl Field {
         }
     }
 
+    pub fn map_str<'a: 'static>(value: HashMap<&'a str, Field>) -> Self {
+        Self {
+            field_type: FieldType::Map,
+            value: Box::new(value),
+        }
+    }
+
     pub fn map(value: HashMap<String, Field>) -> Self {
         Self {
             field_type: FieldType::Map,
