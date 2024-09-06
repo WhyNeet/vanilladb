@@ -6,7 +6,7 @@ use std::{
 use crate::{deserialize::Deserialize, serialize::Serialize};
 
 #[repr(u8)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum FieldType {
     String = 0,
     Byte = 1,
@@ -48,6 +48,7 @@ impl Deserialize for FieldType {
     }
 }
 
+#[derive(Debug)]
 pub struct Field {
     field_type: FieldType,
     value: Box<dyn Serialize>,
@@ -212,5 +213,9 @@ impl Field {
             field_type: FieldType::Map,
             value: Box::new(value),
         }
+    }
+
+    pub fn value(&self) -> &Box<dyn Serialize> {
+        &self.value
     }
 }
