@@ -6,6 +6,10 @@ macro_rules! serializable_number {
             fn serialize(self) -> Result<Box<[u8]>, Box<dyn Error>> {
                 Ok(Box::new(self.to_le_bytes()))
             }
+
+            fn size(&self) -> u32 {
+              mem::size_of::<Self>() as u32
+            }
         })*
     }
 }
