@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use ccb::{field::Field, serialize::Serialize};
+use ccb::{deserialize::Deserialize, field::Field, serialize::Serialize};
 
 #[test]
-fn string_field_serialization_works() {
+fn string_serialization_works() {
     let field = Field::string("world".to_string());
     let buffer = field.serialize().unwrap();
 
@@ -19,7 +19,7 @@ fn string_field_serialization_works() {
 }
 
 #[test]
-fn map_field_serialization_works() {
+fn map_serialization_works() {
     let name = Field::string("whyneet".to_string());
     let stars = Field::int32(100);
 
@@ -38,4 +38,14 @@ fn map_field_serialization_works() {
             101, 0, 0, 7, 0, 0, 0, 119, 104, 121, 110, 101
         ]
     );
+}
+
+#[test]
+fn string_deserialization_works() {
+    let buffer = [0, 5, 0, 0, 0, 119, 111, 114, 108, 100]
+        .to_vec()
+        .into_boxed_slice();
+    let field = Field::deserialize(buffer).unwrap();
+
+    assert_eq!(format!("{:?}", field.value()), "\"world\"");
 }
