@@ -3,7 +3,7 @@ macro_rules! serializable_number {
       use super::Serialize;
       use std::error::Error;
         $(impl Serialize for $t {
-            fn serialize(self) -> Result<Box<[u8]>, Box<dyn Error>> {
+            fn serialize(&self) -> Result<Box<[u8]>, Box<dyn Error>> {
                 Ok(Box::new(self.to_le_bytes()))
             }
 
