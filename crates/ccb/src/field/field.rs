@@ -1,4 +1,7 @@
-use std::{collections::HashMap, mem, ptr};
+use std::{
+    collections::{hash_map::Values, HashMap},
+    mem, ptr,
+};
 
 use crate::{deserialize::Deserialize, serialize::Serialize};
 
@@ -89,6 +92,47 @@ impl Serialize for Field {
 
     fn size(&self) -> u32 {
         self.value.size()
+    }
+}
+
+impl Deserialize for Field {
+    fn deserialize(from: Box<[u8]>) -> Result<Self, Box<dyn std::error::Error>> {
+        let field_type = FieldType::deserialize(Box::new([from[0]]))?;
+        let field_length = u32::deserialize(from[1..5].to_vec().into_boxed_slice())?;
+
+        let field_start: usize = 5;
+        let field_end = field_start + field_length as usize;
+
+        let value: Box<dyn Serialize> = match field_type {
+            FieldType::String => Box::new(String::deserialize(
+                from[field_start..field_end].to_vec().into_boxed_slice(),
+            )?),
+            FieldType::Byte => Box::new(i8::deserialize(Box::new([from[field_length as usize]]))?),
+            FieldType::UByte => Box::new(u8::deserialize(Box::new([from[field_length as usize]]))?),
+            FieldType::Int32 => Box::new(i32::deserialize(
+                from[field_start..field_end].to_vec().into_boxed_slice(),
+            )?),
+            FieldType::UInt32 => Box::new(u32::deserialize(
+                from[field_start..field_end].to_vec().into_boxed_slice(),
+            )?),
+            FieldType::Int64 => Box::new(i64::deserialize(
+                from[field_start..field_end].to_vec().into_boxed_slice(),
+            )?),
+            FieldType::UInt64 => Box::new(u64::deserialize(
+                from[field_start..field_end].to_vec().into_boxed_slice(),
+            )?),
+            FieldType::Float32 => Box::new(f32::deserialize(
+                from[field_start..field_end].to_vec().into_boxed_slice(),
+            )?),
+            FieldType::Float64 => Box::new(f64::deserialize(
+                from[field_start..field_end].to_vec().into_boxed_slice(),
+            )?),
+            FieldType::Map => Box::new(HashMap::<String, Field>::deserialize(
+                from[field_start..field_end].to_vec().into_boxed_slice(),
+            )?),
+        };
+
+        Ok(Self { field_type, value })
     }
 }
 
