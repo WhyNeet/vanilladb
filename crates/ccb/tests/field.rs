@@ -14,7 +14,6 @@ fn string_serialization_works() {
       // length - 5, 0, 0, 0 (5)
       // value - 119, 111, 114, 108, 100 ("world")
     */
-
     assert_eq!(&buffer[..], [0, 5, 0, 0, 0, 119, 111, 114, 108, 100]);
 }
 
@@ -34,8 +33,8 @@ fn map_serialization_works() {
     assert_eq!(
         &buffer[..],
         [
-            9, 30, 0, 0, 0, 115, 116, 97, 114, 115, 0, 3, 4, 0, 0, 0, 100, 0, 0, 0, 110, 97, 109,
-            101, 0, 0, 7, 0, 0, 0, 119, 104, 121, 110, 101
+            9, 32, 0, 0, 0, 115, 116, 97, 114, 115, 0, 3, 4, 0, 0, 0, 100, 0, 0, 0, 110, 97, 109,
+            101, 0, 0, 7, 0, 0, 0, 119, 104, 121, 110, 101, 101, 116
         ]
     );
 }
@@ -48,4 +47,17 @@ fn string_deserialization_works() {
     let field = Field::deserialize(buffer).unwrap();
 
     assert_eq!(format!("{:?}", field.value()), "\"world\"");
+}
+
+#[test]
+fn map_deserialization_works() {
+    let buffer = [
+        9, 32, 0, 0, 0, 115, 116, 97, 114, 115, 0, 3, 4, 0, 0, 0, 100, 0, 0, 0, 110, 97, 109, 101,
+        0, 0, 7, 0, 0, 0, 119, 104, 121, 110, 101, 101, 116,
+    ]
+    .to_vec()
+    .into_boxed_slice();
+    let field = Field::deserialize(buffer).unwrap();
+
+    println!("value: {:?}", field.value());
 }
