@@ -1,9 +1,10 @@
 macro_rules! serializable_number {
     (for $($t:ty),+) => {
       use super::Serialize;
+      use std::error::Error;
         $(impl Serialize for $t {
-            fn serialize(self) -> Box<[u8]> {
-                Box::new(self.to_le_bytes())
+            fn serialize(self) -> Result<Box<[u8]>, Box<dyn Error>> {
+                Ok(Box::new(self.to_le_bytes()))
             }
         })*
     }
