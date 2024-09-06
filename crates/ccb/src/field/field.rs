@@ -1,4 +1,4 @@
-use std::{mem, ptr};
+use std::{collections::HashMap, mem, ptr};
 
 use crate::serialize::Serialize;
 
@@ -133,6 +133,13 @@ impl Field {
     pub fn float64(value: f64) -> Self {
         Self {
             field_type: FieldType::Float64,
+            value: Box::new(value),
+        }
+    }
+
+    pub fn map(value: HashMap<String, Field>) -> Self {
+        Self {
+            field_type: FieldType::Map,
             value: Box::new(value),
         }
     }
