@@ -23,12 +23,13 @@ impl Deserialize for bool {
 
 impl Deserialize for HashMap<String, Field> {
     fn deserialize(from: Box<[u8]>) -> Result<Self, Box<dyn Error>> {
+        let mut map = HashMap::new();
+
         let mut byte_offset = 0;
 
-        let mut map = HashMap::new();
         while byte_offset < from.len() {
             let field_name_length = 'block: {
-                for idx in 1..from.len() {
+                for idx in byte_offset..from.len() {
                     if from[idx] == 0 && from[idx - 1] != b'\\' {
                         break 'block Some(idx);
                     }
@@ -41,20 +42,27 @@ impl Deserialize for HashMap<String, Field> {
                 "invalid ccb input",
             ))?;
 
-            let field_name =
-                String::deserialize(from[0..field_name_length].to_vec().into_boxed_slice())?;
-            // offset + name length + null
-            byte_offset += field_name.len() + 1;
+            let field_name = String::deserialize(
+                from[byte_offset..field_name_length]
+                    .to_vec()
+                    .into_boxed_slice(),
+            )?;
+            // offset + name length +
+            byte_offset = field_name_length + 1;
             let field_length = u32::deserialize(
+                // add 1 to skip field type
                 from[(byte_offset + 1)..(byte_offset + 1 + mem::size_of::<u32>())]
                     .to_vec()
                     .into_boxed_slice(),
             )?;
             let field = Field::deserialize(
-                from[byte_offset..(byte_offset + field_length as usize)]
+                from[byte_offset
+                    ..(byte_offset + 1 + mem::size_of::<u32>() + field_length as usize)]
                     .to_vec()
                     .into_boxed_slice(),
             )?;
+
+            byte_offset += 1 + mem::size_of::<u32>() + field_length as usize;
 
             map.insert(field_name, field);
         }

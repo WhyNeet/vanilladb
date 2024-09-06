@@ -32,7 +32,7 @@ binary document field repr:
 
 field_name (String) + \0
 field_type (u8)
-field_value_length
+field_value_length (u32)
 field_value ([u8])
 
 */
@@ -73,9 +73,13 @@ impl Serialize for HashMap<&str, Field> {
 
     fn size(&self) -> u32 {
         self.iter()
-            // acc + field_type + field_name + \0 + field_value_length + field_value
+            // acc + field_name + \0 + field_type + field_value_length + field_value
             .fold(0, |acc, (key, v)| {
-                acc + 1 + (key.len() as u32) + mem::size_of::<u32>() as u32 + v.size()
+                acc + (key.len() as u32)
+                    + 1
+                    + mem::size_of::<u8>() as u32
+                    + mem::size_of::<u32>() as u32
+                    + v.size()
             })
     }
 }
@@ -116,9 +120,13 @@ impl Serialize for HashMap<String, Field> {
 
     fn size(&self) -> u32 {
         self.iter()
-            // acc + field_type + field_name + \0 + field_value_length + field_value
+            // acc + field_name + \0 + field_type + field_value_length + field_value
             .fold(0, |acc, (key, v)| {
-                acc + 1 + (key.len() as u32) + mem::size_of::<u32>() as u32 + v.size()
+                acc + (key.len() as u32)
+                    + 1
+                    + mem::size_of::<u8>() as u32
+                    + mem::size_of::<u32>() as u32
+                    + v.size()
             })
     }
 }
