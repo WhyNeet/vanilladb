@@ -7,3 +7,9 @@ impl Deserialize for String {
         Ok(String::from_utf8_lossy(&from[..]).to_string())
     }
 }
+
+impl Deserialize for bool {
+    fn deserialize(from: Box<[u8]>) -> Result<Self, Box<dyn Error>> {
+        Ok(from[0] != 0)
+    }
+}
