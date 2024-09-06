@@ -1,6 +1,6 @@
 use std::{collections::HashMap, mem, ptr};
 
-use crate::serialize::Serialize;
+use crate::{deserialize::Deserialize, serialize::Serialize};
 
 #[repr(u8)]
 #[derive(Clone, Copy)]
@@ -27,6 +27,24 @@ impl Serialize for FieldType {
     }
 }
 
+impl Deserialize for FieldType {
+    fn deserialize(from: Box<[u8]>) -> Result<Self, Box<dyn std::error::Error>> {
+        Ok(match from[0] {
+            0 => FieldType::String,
+            1 => FieldType::Byte,
+            2 => FieldType::UByte,
+            3 => FieldType::Int32,
+            4 => FieldType::UInt32,
+            5 => FieldType::Int64,
+            6 => FieldType::UInt64,
+            7 => FieldType::Float32,
+            8 => FieldType::Float64,
+            9 => FieldType::Map,
+            _ => unreachable!(),
+        })
+    }
+}
+
 pub struct Field {
     field_type: FieldType,
     value: Box<dyn Serialize>,
@@ -37,8 +55,9 @@ impl Serialize for Field {
         // just the binary for value
         let value_buffer = self.value.serialize()?;
 
-        // binary for field type (type + length + value)
-        let full_buffer_length = mem::size_of::<u8>() + mem::size_of::<u32>() + value_buffer.len();
+        // full binary for field (type + length + value)
+        let full_buffer_length =
+            self.field_type.size() as usize + mem::size_of::<u32>() + value_buffer.len();
         let mut full_buffer = vec![0u8; full_buffer_length].into_boxed_slice();
 
         unsafe {
