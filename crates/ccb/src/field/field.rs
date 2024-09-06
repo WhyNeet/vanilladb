@@ -1,4 +1,4 @@
-use std::{collections::HashMap, mem};
+use std::{mem, ptr};
 
 use crate::serialize::Serialize;
 
@@ -34,7 +34,38 @@ pub struct Field {
 
 impl Serialize for Field {
     fn serialize(&self) -> Result<Box<[u8]>, Box<dyn std::error::Error>> {
-        self.value.serialize()
+        // just the binary for value
+        let value_buffer = self.value.serialize()?;
+
+        // binary for field type (type + length + value)
+        let full_buffer_length = mem::size_of::<u8>() + mem::size_of::<u32>() + value_buffer.len();
+        let mut full_buffer = vec![0u8; full_buffer_length].into_boxed_slice();
+
+        unsafe {
+            ptr::copy_nonoverlapping(
+                (self.field_type as u8).to_le_bytes().as_ptr(),
+                full_buffer.as_mut_ptr(),
+                1,
+            );
+
+            let value_buffer_len = (value_buffer.len() as u32).to_le_bytes();
+
+            ptr::copy_nonoverlapping(
+                value_buffer_len.as_ptr(),
+                full_buffer.as_mut_ptr().add(1),
+                value_buffer_len.len(),
+            );
+
+            ptr::copy_nonoverlapping(
+                value_buffer.as_ptr(),
+                full_buffer
+                    .as_mut_ptr()
+                    .add(mem::size_of::<u8>() + mem::size_of::<u32>()),
+                value_buffer.len(),
+            );
+        };
+
+        Ok(full_buffer)
     }
 
     fn size(&self) -> u32 {
