@@ -32,6 +32,10 @@ impl Document {
         Document { map }
     }
 
+    pub fn size(&self) -> u32 {
+        self.map.size()
+    }
+
     pub fn serialize(&self) -> Result<Box<[u8]>, Box<dyn Error>> {
         let size = self.map.size();
         let mut buffer = vec![0u8; mem::size_of::<u32>() + size as usize].into_boxed_slice();
