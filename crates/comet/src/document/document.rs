@@ -1,64 +1,61 @@
 use core::str;
-use std::ptr;
+use std::{collections::HashMap, error::Error, mem, ptr};
 
-use super::constants::{EMAIL_SIZE, ID_SIZE, USERNAME_SIZE};
+use trail::{deserialize::Deserialize, field::Field, serialize::Serialize};
 
+#[derive(Debug)]
 pub struct Document {
-    pub id: u64,
-    pub username: [u8; USERNAME_SIZE],
-    pub email: [u8; EMAIL_SIZE],
+    map: HashMap<String, Field>,
 }
 
 impl Document {
-    pub fn new(id: u64, username: &str, email: &str) -> Self {
-        let mut username_bytes = [0u8; USERNAME_SIZE];
-        let mut email_bytes = [0u8; EMAIL_SIZE];
-
-        unsafe { Document::write_to_buffer(username.as_bytes(), &mut username_bytes, 0) };
-        unsafe { Document::write_to_buffer(email.as_bytes(), &mut email_bytes, 0) };
-
-        Document {
-            id,
-            username: username_bytes,
-            email: email_bytes,
+    pub fn new() -> Self {
+        Self {
+            map: HashMap::new(),
         }
     }
 
-    pub fn serialize(&self, dest: &mut [u8]) {
-        let id = self.id.to_le_bytes();
-        unsafe { Document::write_to_buffer(&id, dest, 0) };
-        unsafe { Document::write_to_buffer(&self.username, dest, ID_SIZE) }
-        unsafe { Document::write_to_buffer(&self.email, dest, ID_SIZE + USERNAME_SIZE) }
+    pub fn append_field(&mut self, key: String, value: Field) -> &mut Self {
+        self.map.insert(key, value);
+        self
     }
 
-    pub fn deserialize(&mut self, src: &[u8]) {
-        let mut id_buffer = [0u8; ID_SIZE];
-        unsafe { Document::write_to_buffer(&src[..ID_SIZE], &mut id_buffer, 0) }
-        self.id = u64::from_le_bytes(id_buffer);
+    pub fn get_field(&self, key: &str) -> Option<&Field> {
+        self.map.get(key)
+    }
 
+    pub fn remove_field(&mut self, key: &str) -> Option<Field> {
+        self.map.remove(key)
+    }
+
+    pub fn new_with_fields(map: HashMap<String, Field>) -> Self {
+        Document { map }
+    }
+
+    pub fn serialize(&self) -> Result<Box<[u8]>, Box<dyn Error>> {
+        let size = self.map.size();
+        let mut buffer = vec![0u8; mem::size_of::<u32>() + size as usize].into_boxed_slice();
+
+        let size = size.to_le_bytes();
+        unsafe { ptr::copy_nonoverlapping(size.as_ptr(), buffer.as_mut_ptr(), size.len()) };
+
+        let data = self.map.serialize()?;
         unsafe {
-            Document::write_to_buffer(
-                &src[ID_SIZE..(ID_SIZE + USERNAME_SIZE)],
-                &mut self.username,
-                0,
+            ptr::copy_nonoverlapping(
+                data.as_ptr(),
+                buffer.as_mut_ptr().add(mem::size_of::<u32>()),
+                data.len(),
             )
-        }
-        unsafe { Document::write_to_buffer(&src[(ID_SIZE + USERNAME_SIZE)..], &mut self.email, 0) }
+        };
+
+        Ok(buffer)
     }
 
-    pub fn display(&self) {
-        println!("-- table entity {} --", self.id);
-        println!("username: {}", unsafe {
-            str::from_utf8_unchecked(&self.username)
-        });
-        println!("email: {}", unsafe {
-            str::from_utf8_unchecked(&self.email)
-        });
-    }
+    pub fn deserialize(&mut self, src: &[u8]) -> Result<Self, Box<dyn Error>> {
+        let map = HashMap::<String, Field>::deserialize(
+            src[mem::size_of::<u32>()..].to_vec().into_boxed_slice(),
+        )?;
 
-    unsafe fn write_to_buffer(from: &[u8], to: &mut [u8], offset: usize) {
-        let from_ptr: *const u8 = from.as_ptr();
-        let to_ptr: *mut u8 = to.as_mut_ptr().add(offset);
-        ptr::copy_nonoverlapping(from_ptr, to_ptr, from.len())
+        Ok(Document { map })
     }
 }
