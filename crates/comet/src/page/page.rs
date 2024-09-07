@@ -1,50 +1,37 @@
-use std::ffi::c_void;
+use std::{ffi::c_void, ptr};
 
-use crate::document::{
-    constants::{EMAIL_SIZE, ID_SIZE, TOTAL_DOCUMENT_SIZE, USERNAME_SIZE},
-    document::Document,
-};
-
-use super::constants::{DOCUMENTS_PER_PAGE, PAGE_SIZE};
+use super::constants::PAGE_SIZE;
 
 pub struct Page {
     buffer: Box<[u8; PAGE_SIZE]>,
+    free: usize,
 }
 
 impl Page {
     pub fn new() -> Self {
         Page {
             buffer: Box::new([0u8; PAGE_SIZE]),
+            free: PAGE_SIZE,
         }
     }
 
-    pub fn with_buffer(buffer: Box<[u8; PAGE_SIZE]>) -> Self {
-        Self { buffer }
+    pub fn with_buffer(buffer: Box<[u8; PAGE_SIZE]>, free: usize) -> Self {
+        Self { buffer, free }
     }
 
-    pub fn retrieve_document_slot(&mut self, offset: usize) -> &mut [u8] {
-        &mut self.buffer[offset..(offset + TOTAL_DOCUMENT_SIZE)]
-    }
+    /// Writes the data to buffer and returns the number of bytes written
+    pub fn write_to_buffer(&mut self, data: &[u8]) -> usize {
+        // if the length of the data is greater than the amount of free bytes, write till the end of the page
+        let bytes_to_write = data.len().min(self.free);
+        unsafe {
+            ptr::copy_nonoverlapping(
+                data.as_ptr(),
+                self.buffer.as_mut_ptr().add(PAGE_SIZE - self.free),
+                bytes_to_write,
+            )
+        };
 
-    pub fn find_by_id(&self, id: u64) -> Option<Document> {
-        for i in 0..DOCUMENTS_PER_PAGE {
-            let offset = i * TOTAL_DOCUMENT_SIZE;
-            let buf = &self.buffer[(offset)..(offset + TOTAL_DOCUMENT_SIZE)];
-            if buf[0..=ID_SIZE] == [0u8; ID_SIZE + 1] {
-                return None;
-            }
-            let mut document = Document {
-                id: 0,
-                username: [0u8; USERNAME_SIZE],
-                email: [0u8; EMAIL_SIZE],
-            };
-            document.deserialize(buf);
-            if document.id == id {
-                return Some(document);
-            }
-        }
-
-        None
+        bytes_to_write
     }
 
     pub unsafe fn buffer_ptr(&self) -> *mut c_void {
