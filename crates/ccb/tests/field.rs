@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ffi::c_void, ptr};
 
 use ccb::{deserialize::Deserialize, field::Field, serialize::Serialize};
 
@@ -59,5 +59,21 @@ fn map_deserialization_works() {
     .into_boxed_slice();
     let field = Field::deserialize(buffer).unwrap();
 
-    println!("value: {:?}", field.value());
+    let read_box_ref = |b: &Box<dyn Serialize>| {
+        let value = Box::into_raw(unsafe { ptr::read(b as *const Box<dyn Serialize>) });
+        let value = value as *mut c_void;
+        value
+    };
+
+    let value = read_box_ref(field.value()) as *mut HashMap<String, Field>;
+
+    unsafe {
+        assert!((*value).get("name").is_some());
+
+        let name = read_box_ref((*value).get("name").unwrap().value()) as *mut String;
+        assert_eq!(*name, "whyneet".to_string());
+
+        let stars = read_box_ref((*value).get("stars").unwrap().value()) as *mut i32;
+        assert_eq!(*stars, 100);
+    }
 }
