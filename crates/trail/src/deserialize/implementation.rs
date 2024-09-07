@@ -1,9 +1,6 @@
 use std::{collections::HashMap, io::Error as IoError};
 
-use crate::{
-    field::{Field, FieldType},
-    serialize::Serialize,
-};
+use crate::field::Field;
 
 use super::macro_impl::deserializable_number;
 
