@@ -56,26 +56,6 @@ impl CometIO for DirectIO {
 
         let pages = collection.pages();
 
-        // prepare collection header
-        let mut collection_header = [0u8; PAGE_SIZE];
-        let pages_len = (pages.len() as u64).to_le_bytes();
-        unsafe {
-            ptr::copy_nonoverlapping(
-                pages_len.as_ptr(),
-                &mut collection_header as *mut u8,
-                pages_len.len(),
-            )
-        };
-
-        let num_documents = collection.num_documents().to_le_bytes();
-        unsafe {
-            ptr::copy_nonoverlapping(
-                num_documents.as_ptr(),
-                collection_header.as_mut_ptr().add(pages_len.len()),
-                num_documents.len(),
-            )
-        };
-
         let descriptor: RawFd = unsafe {
             open(
                 collection_path.as_ptr(),
@@ -88,23 +68,6 @@ impl CometIO for DirectIO {
         }
 
         let mut bytes_written = 0;
-
-        // write collection header
-        let written = unsafe {
-            pwrite(
-                descriptor,
-                collection_header.as_ptr() as *const c_void,
-                PAGE_SIZE,
-                bytes_written,
-            )
-        };
-
-        if written < 0 {
-            unsafe { close(descriptor) };
-            return Err(Error::last_os_error());
-        }
-
-        bytes_written += written as i64;
 
         for page in pages {
             // write page with data
@@ -151,44 +114,7 @@ impl CometIO for DirectIO {
                 return Err(Error::last_os_error());
             }
 
-            let mut collection_header = [0u8; PAGE_SIZE];
-            let read = unsafe {
-                pread(
-                    descriptor,
-                    collection_header.as_mut_ptr() as *mut c_void,
-                    PAGE_SIZE,
-                    0,
-                )
-            };
-
-            if read < 0 {
-                return Err(Error::last_os_error());
-            } else if read == 0 {
-                return Err(Error::other("empty collection file"));
-            }
-
-            let mut num_pages = [0u8; 8];
-            unsafe {
-                ptr::copy_nonoverlapping(
-                    collection_header.as_ptr() as *const u8,
-                    num_pages.as_mut_ptr(),
-                    num_pages.len(),
-                )
-            };
-            let num_pages = u64::from_le_bytes(num_pages);
-
-            let mut num_documents = [0u8; 8];
-            unsafe {
-                ptr::copy_nonoverlapping(
-                    collection_header.as_ptr().add(8) as *const u8,
-                    num_documents.as_mut_ptr(),
-                    num_documents.len(),
-                )
-            };
-            let num_documents = u64::from_le_bytes(num_documents);
-
             let collection = Collection::custom(
-                num_documents as usize,
                 Vec::new(),
                 name.to_string(),
                 Some(Box::new(move |idx| {
@@ -205,7 +131,6 @@ impl CometIO for DirectIO {
 
                     page
                 })),
-                num_pages,
             );
 
             collections.push(collection);

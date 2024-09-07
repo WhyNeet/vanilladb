@@ -31,6 +31,8 @@ impl Page {
             )
         };
 
+        self.free -= bytes_to_write;
+
         bytes_to_write
     }
 
