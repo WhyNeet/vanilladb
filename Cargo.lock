@@ -3,10 +3,6 @@
 version = 3
 
 [[package]]
-name = "ccb"
-version = "0.1.0"
-
-[[package]]
 name = "comet"
 version = "0.1.0"
 dependencies = [
@@ -25,3 +21,7 @@ version = "0.1.0"
 dependencies = [
  "comet",
 ]
+
+[[package]]
+name = "trail"
+version = "0.1.0"

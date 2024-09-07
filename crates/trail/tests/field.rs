@@ -1,6 +1,6 @@
 use std::{collections::HashMap, ffi::c_void, ptr};
 
-use ccb::{deserialize::Deserialize, field::Field, serialize::Serialize};
+use trail::{deserialize::Deserialize, field::Field, serialize::Serialize};
 
 #[test]
 fn string_serialization_works() {
