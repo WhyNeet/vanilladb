@@ -7,19 +7,19 @@ use super::macro_impl::deserializable_number;
 deserializable_number!(for u128, u64, u32, u16, u8, i128, i64, i32, i16, i8, f64, f32);
 
 impl Deserialize for String {
-    fn deserialize(from: Box<[u8]>) -> Result<Self, Box<dyn Error>> {
+    fn deserialize(from: &[u8]) -> Result<Self, Box<dyn Error>> {
         Ok(String::from_utf8_lossy(&from[..]).to_string())
     }
 }
 
 impl Deserialize for bool {
-    fn deserialize(from: Box<[u8]>) -> Result<Self, Box<dyn Error>> {
+    fn deserialize(from: &[u8]) -> Result<Self, Box<dyn Error>> {
         Ok(from[0] != 0)
     }
 }
 
 impl Deserialize for HashMap<String, Field> {
-    fn deserialize(from: Box<[u8]>) -> Result<Self, Box<dyn Error>> {
+    fn deserialize(from: &[u8]) -> Result<Self, Box<dyn Error>> {
         let mut map = HashMap::new();
 
         let mut byte_offset = 0;
@@ -39,24 +39,16 @@ impl Deserialize for HashMap<String, Field> {
                 "invalid ccb input",
             ))?;
 
-            let field_name = String::deserialize(
-                from[byte_offset..field_name_length]
-                    .to_vec()
-                    .into_boxed_slice(),
-            )?;
+            let field_name = String::deserialize(&from[byte_offset..field_name_length])?;
             // offset + name length +
             byte_offset = field_name_length + 1;
             let field_length = u32::deserialize(
                 // add 1 to skip field type
-                from[(byte_offset + 1)..(byte_offset + 1 + mem::size_of::<u32>())]
-                    .to_vec()
-                    .into_boxed_slice(),
+                &from[(byte_offset + 1)..(byte_offset + 1 + mem::size_of::<u32>())],
             )?;
             let field = Field::deserialize(
-                from[byte_offset
-                    ..(byte_offset + 1 + mem::size_of::<u32>() + field_length as usize)]
-                    .to_vec()
-                    .into_boxed_slice(),
+                &from[byte_offset
+                    ..(byte_offset + 1 + mem::size_of::<u32>() + field_length as usize)],
             )?;
 
             byte_offset += 1 + mem::size_of::<u32>() + field_length as usize;

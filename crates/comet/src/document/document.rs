@@ -56,9 +56,7 @@ impl Document {
     }
 
     pub fn deserialize(&mut self, src: &[u8]) -> Result<Self, Box<dyn Error>> {
-        let map = HashMap::<String, Field>::deserialize(
-            src[mem::size_of::<u32>()..].to_vec().into_boxed_slice(),
-        )?;
+        let map = HashMap::<String, Field>::deserialize(&src[mem::size_of::<u32>()..])?;
 
         Ok(Document { map })
     }
