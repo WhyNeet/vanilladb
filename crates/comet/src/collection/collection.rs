@@ -3,10 +3,11 @@ use std::error::Error;
 use crate::{
     document::document::Document,
     page::{constants::PAGE_SIZE, page::Page},
+    pager::Pager,
 };
 
 pub struct Collection {
-    pages: Vec<Page>,
+    pager: Pager,
     name: String,
     page_loader: Option<Box<dyn Fn(u64) -> [u8; PAGE_SIZE]>>,
 }
@@ -14,7 +15,7 @@ pub struct Collection {
 impl Collection {
     pub fn new(name: String) -> Self {
         Collection {
-            pages: vec![Page::new()],
+            pager: Pager::new(),
             name,
             page_loader: None,
         }
@@ -25,28 +26,24 @@ impl Collection {
         name: String,
         page_loader: Option<Box<dyn Fn(u64) -> [u8; PAGE_SIZE]>>,
     ) -> Self {
+        let num_pages = pages.len() as u64;
+
         Self {
             name,
             page_loader,
-            pages,
+            pager: Pager::with_pages(pages, num_pages),
         }
     }
 
     pub fn insert_document(&mut self, document: &Document) -> Result<(), Box<dyn Error>> {
-        let page = self.pages.last_mut().unwrap();
         let bytes = document.serialize()?;
-        let bytes_written = page.write_to_buffer(&bytes[..]);
-        if bytes_written < document.size() as usize {
-            self.pages.push(Page::new());
-            let page = self.pages.last_mut().unwrap();
-            page.write_to_buffer(&bytes[bytes_written..]);
-        }
+        self.pager.write_bytes(&bytes);
 
         Ok(())
     }
 
     pub fn pages(&self) -> Vec<&Page> {
-        self.pages.iter().collect()
+        self.pager.pages()
     }
 
     pub fn name(&self) -> &str {
