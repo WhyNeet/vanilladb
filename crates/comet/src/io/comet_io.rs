@@ -15,5 +15,7 @@ pub trait CometIO {
         page: &Page,
     ) -> io::Result<()>;
     fn load_collection_page(&self, db: &str, collection: &str, idx: u64) -> io::Result<Page>;
+    fn create_database(&self, db: &str) -> io::Result<()>;
+    fn create_collection(&self, db: &str, collection: &str) -> io::Result<()>;
     fn data_dir(&self) -> &str;
 }

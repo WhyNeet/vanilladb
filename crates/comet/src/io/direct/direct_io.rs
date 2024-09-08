@@ -3,6 +3,7 @@ use std::{
     ffi::{c_void, CString},
     fs,
     io::{self, Error},
+    path::PathBuf,
 };
 
 use libc::{open, pread, pwrite, O_DIRECT, O_RDONLY, O_SYNC};
@@ -73,6 +74,15 @@ impl DirectIO {
 impl CometIO for DirectIO {
     fn data_dir(&self) -> &str {
         &self.data_dir
+    }
+
+    fn create_database(&self, db: &str) -> io::Result<()> {
+        fs::create_dir_all(PathBuf::from(&*self.data_dir).join(db))
+    }
+
+    fn create_collection(&self, db: &str, collection: &str) -> io::Result<()> {
+        fs::File::create_new(PathBuf::from(&*self.data_dir).join(db).join(collection))?;
+        Ok(())
     }
 
     fn load_fs(&mut self) -> std::io::Result<()> {
