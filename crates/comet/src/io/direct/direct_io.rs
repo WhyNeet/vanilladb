@@ -1,9 +1,11 @@
 use std::{
+    cell::RefCell,
     collections::HashMap,
     ffi::{c_void, CString},
     fs,
     io::{self, Error},
     path::PathBuf,
+    rc::Rc,
 };
 
 use libc::{open, pread, pwrite, O_DIRECT, O_RDONLY, O_SYNC};
@@ -22,11 +24,11 @@ pub struct DirectIO {
 }
 
 impl DirectIO {
-    pub fn new(config: IOConfig) -> Self {
-        Self {
+    pub fn new(config: IOConfig) -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(Self {
             data_dir: config.data_dir(),
             databases: HashMap::new(),
-        }
+        }))
     }
 }
 
