@@ -34,28 +34,7 @@ impl<IO: CometIO> Comet<IO> {
         self.databases.iter_mut().find(|db| db.name() == name)
     }
 
-    pub fn flush(&self) -> io::Result<()> {
-        for database in self.databases.iter() {
-            self.io.flush_db(database)?
-        }
-
-        Ok(())
-    }
-
     pub fn load(&mut self) -> io::Result<()> {
-        let db_files = Path::new(self.io.data_dir())
-            .read_dir()?
-            .map(|f| f.unwrap().file_name());
-
-        for db in db_files {
-            let db = self.load_db(db.to_str().unwrap())?;
-            self.databases.push(db);
-        }
-
-        Ok(())
-    }
-
-    fn load_db(&mut self, db: &str) -> io::Result<Database> {
-        self.io.load_db(&db)
+        self.io.load_fs()
     }
 }
