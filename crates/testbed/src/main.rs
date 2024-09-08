@@ -1,3 +1,5 @@
+use std::io;
+
 use comet::{
     comet::Comet,
     document::Document,
@@ -5,7 +7,7 @@ use comet::{
 };
 use trail::field::Field;
 
-fn main() {
+fn main() -> io::Result<()> {
     println!("--- writing data ---");
 
     let config = IOConfig::builder()
@@ -14,8 +16,8 @@ fn main() {
     let mut comet = Comet::new(DirectIO::new(config));
     comet.initialize().unwrap();
 
-    let database = comet.create_database("primary".to_string());
-    let collection = database.create_collection("users".to_string());
+    let database = comet.create_database("primary".to_string())?;
+    let collection = database.create_collection("users".to_string())?;
 
     for i in 0..1000 {
         let mut document = Document::new();
@@ -29,9 +31,9 @@ fn main() {
         collection.insert_document(&document).unwrap();
     }
 
-    comet.flush().unwrap();
-
     println!("--- done ---");
+
+    Ok(())
 }
 
 // fn write_data() {
