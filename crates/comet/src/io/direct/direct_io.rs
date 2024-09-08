@@ -4,7 +4,6 @@ use std::{
     io::Error,
     os::fd::RawFd,
     path::Path,
-    ptr,
 };
 
 use libc::{close, open, pread, pwrite, O_CREAT, O_DIRECT, O_RDONLY, O_SYNC, O_WRONLY};
@@ -124,8 +123,7 @@ impl CometIO for DirectIO {
                             descriptor,
                             page.as_ptr() as *mut c_void,
                             PAGE_SIZE,
-                            // first page is collection metadata
-                            (PAGE_SIZE as i64) + (idx as i64 * PAGE_SIZE as i64),
+                            idx as i64 * PAGE_SIZE as i64,
                         )
                     };
 
