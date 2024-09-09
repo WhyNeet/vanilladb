@@ -1,6 +1,7 @@
 use std::error::Error;
 
 use crate::{
+    cursor::cursor::Cursor,
     document::document::Document,
     page::{constants::PAGE_SIZE, page::Page},
     pager::Pager,
@@ -48,5 +49,9 @@ impl Collection {
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn cursor(&self) -> Cursor {
+        self.pager.cursor()
     }
 }

@@ -1,4 +1,4 @@
-use crate::page::Page;
+use crate::{cursor::cursor::Cursor, page::Page};
 
 pub struct Pager {
     pages: Vec<Page>,
@@ -47,5 +47,9 @@ impl Pager {
 
     pub fn pages(&self) -> Vec<&Page> {
         self.pages.iter().collect()
+    }
+
+    pub fn cursor(&self) -> Cursor {
+        Cursor::new(&self.pages)
     }
 }
