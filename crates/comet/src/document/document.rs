@@ -55,7 +55,7 @@ impl Document {
         Ok(buffer)
     }
 
-    pub fn deserialize(&mut self, src: &[u8]) -> Result<Self, Box<dyn Error>> {
+    pub fn deserialize(src: &[u8]) -> Result<Self, Box<dyn Error>> {
         let map = HashMap::<String, Field>::deserialize(&src[mem::size_of::<u32>()..])?;
 
         Ok(Document { map })
