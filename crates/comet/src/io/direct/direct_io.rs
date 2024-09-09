@@ -3,7 +3,7 @@ use std::{
     collections::HashMap,
     ffi::{c_void, CString},
     fs,
-    io::{self, Error},
+    io::{self, Error, ErrorKind},
     path::PathBuf,
     rc::Rc,
 };
@@ -83,7 +83,16 @@ impl CometIO for DirectIO {
     }
 
     fn create_collection(&self, db: &str, collection: &str) -> io::Result<()> {
-        fs::File::create_new(PathBuf::from(&*self.data_dir).join(db).join(collection))?;
+        let result = fs::File::create_new(
+            PathBuf::from(&*self.data_dir)
+                .join(db)
+                .join(format!("collection-{collection}.comet")),
+        );
+        if let Err(e) = result {
+            if e.kind() != ErrorKind::AlreadyExists {
+                return Err(e);
+            }
+        }
         Ok(())
     }
 
