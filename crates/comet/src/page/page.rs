@@ -57,6 +57,18 @@ impl Page {
         self.buffer.as_ptr() as *mut c_void
     }
 
+    pub fn buffer(&self) -> &[u8; PAGE_SIZE] {
+        &self.buffer
+    }
+
+    pub fn free(&self) -> u16 {
+        PAGE_SIZE as u16 - self.occupied
+    }
+
+    pub fn fits(&self, size: usize) -> bool {
+        size < (PAGE_SIZE - self.occupied as usize)
+    }
+
     pub fn is_full(&self) -> bool {
         self.occupied == PAGE_SIZE as u16
     }
@@ -67,5 +79,10 @@ impl Page {
 
     pub fn after_flush(&mut self) {
         self.dirty = false
+    }
+
+    pub fn read_bytes(&self, start: usize, len: usize) -> &[u8] {
+        let read = (start + len).min(PAGE_SIZE);
+        &self.buffer[start..read]
     }
 }
