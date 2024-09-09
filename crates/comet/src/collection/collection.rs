@@ -47,6 +47,14 @@ impl Collection {
         self.pager.pages()
     }
 
+    pub fn pages_ref(&self) -> &[Page] {
+        self.pager.pages_ref()
+    }
+
+    pub fn pages_ref_mut(&mut self) -> &mut [Page] {
+        self.pager.pages_ref_mut()
+    }
+
     pub fn name(&self) -> &str {
         &self.name
     }

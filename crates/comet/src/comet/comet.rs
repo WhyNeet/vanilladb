@@ -4,10 +4,13 @@ use std::{
     fs,
     io::{self},
     path::Path,
+    ptr,
     rc::Rc,
 };
 
-use crate::{database::database::Database, io::comet_io::CometIO};
+use crate::{
+    collection::Collection, database::database::Database, io::comet_io::CometIO, page::Page,
+};
 
 pub struct Comet {
     databases: Vec<Database>,
@@ -39,5 +42,28 @@ impl Comet {
 
     pub fn load(&mut self) -> io::Result<()> {
         self.io.borrow_mut().load_fs()
+    }
+
+    fn flush_all(&mut self) -> io::Result<()> {
+        for database in self.databases.iter() {
+            for collection in database.collections().iter() {
+                for (idx, page) in collection.pages_ref().iter().enumerate() {
+                    self.io.borrow().flush_collection_page(
+                        database.name(),
+                        collection.name(),
+                        idx as u64,
+                        unsafe { (page as *const Page as *mut Page).as_mut().unwrap() },
+                    )?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl Drop for Comet {
+    fn drop(&mut self) {
+        self.flush_all().unwrap();
     }
 }

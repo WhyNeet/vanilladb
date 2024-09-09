@@ -44,6 +44,10 @@ impl Database {
         &self.collections
     }
 
+    pub fn collections_mut(&mut self) -> &mut [Collection] {
+        &mut self.collections
+    }
+
     pub fn name(&self) -> &str {
         &self.name
     }

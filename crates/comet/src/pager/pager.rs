@@ -49,6 +49,14 @@ impl Pager {
         self.pages.iter().collect()
     }
 
+    pub fn pages_ref(&self) -> &[Page] {
+        &self.pages
+    }
+
+    pub fn pages_ref_mut(&mut self) -> &mut [Page] {
+        &mut self.pages
+    }
+
     pub fn cursor(&self) -> Cursor {
         Cursor::new(&self.pages)
     }
