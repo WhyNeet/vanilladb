@@ -12,7 +12,7 @@ pub trait CometIO {
         db: &str,
         collection: &str,
         idx: u64,
-        page: &Page,
+        page: &mut Page,
     ) -> io::Result<()>;
     fn load_collection_page(&self, db: &str, collection: &str, idx: u64) -> io::Result<Page>;
     fn create_database(&self, db: &str) -> io::Result<()>;

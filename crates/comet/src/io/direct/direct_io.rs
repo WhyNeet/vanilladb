@@ -217,7 +217,7 @@ impl CometIO for DirectIO {
         db: &str,
         collection: &str,
         idx: u64,
-        page: &crate::page::Page,
+        page: &mut crate::page::Page,
     ) -> std::io::Result<()> {
         let descriptor = self
             .databases
@@ -237,6 +237,8 @@ impl CometIO for DirectIO {
                 (idx * PAGE_SIZE as u64) as i64,
             )
         };
+
+        page.after_flush();
 
         if bytes_written < 0 {
             Err(Error::last_os_error())
