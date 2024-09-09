@@ -30,7 +30,7 @@ impl Comet {
     }
 
     pub fn create_database(&mut self, name: String) -> io::Result<&mut Database> {
-        self.io.borrow().create_database(&name)?;
+        self.io.borrow_mut().create_database(&name)?;
         let database = Database::new(name, Rc::clone(&self.io));
         self.databases.push(database);
         Ok(self.databases.last_mut().unwrap())

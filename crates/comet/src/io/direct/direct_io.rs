@@ -4,6 +4,7 @@ use std::{
     ffi::{c_void, CString},
     fs,
     io::{self, Error, ErrorKind},
+    os::fd::AsRawFd,
     path::PathBuf,
     rc::Rc,
 };
@@ -78,21 +79,29 @@ impl CometIO for DirectIO {
         &self.data_dir
     }
 
-    fn create_database(&self, db: &str) -> io::Result<()> {
+    fn create_database(&mut self, db: &str) -> io::Result<()> {
+        self.databases.insert(db.to_string(), DatabaseData::new());
         fs::create_dir_all(PathBuf::from(&*self.data_dir).join(db))
     }
 
-    fn create_collection(&self, db: &str, collection: &str) -> io::Result<()> {
-        let result = fs::File::create_new(
+    fn create_collection(&mut self, db: &str, collection: &str) -> io::Result<()> {
+        let file = fs::File::create_new(
             PathBuf::from(&*self.data_dir)
                 .join(db)
                 .join(format!("collection-{collection}.comet")),
         );
-        if let Err(e) = result {
+
+        if let Ok(file) = file {
+            self.databases
+                .get_mut(db)
+                .ok_or(Error::other(format!("database \"{db}\" does not exist")))?
+                .insert_collection(collection.to_string(), file.as_raw_fd());
+        } else if let Err(e) = file {
             if e.kind() != ErrorKind::AlreadyExists {
                 return Err(e);
             }
         }
+
         Ok(())
     }
 

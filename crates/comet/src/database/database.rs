@@ -30,7 +30,7 @@ impl Database {
     }
 
     pub fn create_collection(&mut self, name: String) -> io::Result<&mut Collection> {
-        self.io.borrow().create_collection(&self.name, &name)?;
+        self.io.borrow_mut().create_collection(&self.name, &name)?;
         let collection = Collection::new(name);
         self.collections.push(collection);
         Ok(self.collections.last_mut().unwrap())
