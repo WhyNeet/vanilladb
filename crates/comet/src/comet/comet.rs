@@ -1,6 +1,7 @@
 use core::str;
 use std::{
     cell::RefCell,
+    error::Error,
     fs,
     io::{self},
     path::Path,
@@ -25,8 +26,32 @@ impl Comet {
         }
     }
 
-    pub fn initialize(&self) -> io::Result<()> {
-        fs::create_dir_all(Path::new(self.io.borrow().data_dir()))
+    pub fn initialize(&mut self) -> Result<(), Box<dyn Error>> {
+        fs::create_dir_all(Path::new(self.io.borrow().data_dir()))?;
+
+        for database in self.io.borrow().databases() {
+            let db_collections = self.io.borrow();
+            let db_collections = db_collections.collections(&database)?;
+            let mut collections: Vec<Collection> = Vec::with_capacity(db_collections.len());
+            for collection_data in db_collections {
+                let pages = (0..collection_data.num_pages())
+                    .map(|idx| {
+                        self.io
+                            .borrow()
+                            .load_collection_page(&database, collection_data.name(), idx)
+                            .unwrap()
+                    })
+                    .collect();
+                let collection =
+                    Collection::custom(pages, collection_data.name().to_string(), None);
+                collections.push(collection);
+            }
+
+            let database = Database::custom(collections, database.to_string(), Rc::clone(&self.io));
+            self.databases.push(database);
+        }
+
+        Ok(())
     }
 
     pub fn create_database(&mut self, name: String) -> io::Result<&mut Database> {

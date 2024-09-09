@@ -14,11 +14,15 @@ impl DatabaseData {
         }
     }
 
-    pub fn insert_collection(&mut self, name: String, fd: RawFd) {
-        self.collections.insert(name, CollectionData::new(fd));
+    pub fn insert_collection(&mut self, name: String, data: CollectionData) {
+        self.collections.insert(name, data);
     }
 
     pub fn collection(&self, name: &str) -> Option<&CollectionData> {
         self.collections.get(name)
+    }
+
+    pub fn collections(&self) -> Vec<&CollectionData> {
+        self.collections.values().collect()
     }
 }

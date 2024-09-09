@@ -1,6 +1,8 @@
-use std::io;
+use std::{error::Error, io};
 
 use crate::page::Page;
+
+use super::direct::collection_data::CollectionData;
 
 pub trait CometIO {
     // fn flush_db(&self, database: &Database) -> io::Result<()>;
@@ -18,4 +20,6 @@ pub trait CometIO {
     fn create_database(&mut self, db: &str) -> io::Result<()>;
     fn create_collection(&mut self, db: &str, collection: &str) -> io::Result<()>;
     fn data_dir(&self) -> &str;
+    fn databases(&self) -> Vec<&str>;
+    fn collections(&self, db: &str) -> Result<Vec<&CollectionData>, Box<dyn Error>>;
 }
