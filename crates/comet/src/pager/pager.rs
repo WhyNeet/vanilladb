@@ -1,63 +1,55 @@
-use crate::{cursor::cursor::Cursor, page::Page};
+use std::io::{Read, Write};
 
+use crate::io::comet_io::CometIo;
+
+/// Pager is an abstraction over hardware pages on the drive
 pub struct Pager {
-    pages: Vec<Page>,
+    io: CometIo,
     num_pages: u64,
-    last_free_page: usize,
+    last_free_page: u64,
 }
 
 impl Pager {
-    pub fn new() -> Self {
+    pub fn new(io: CometIo) -> Self {
         Self {
-            pages: vec![Page::new()],
+            io,
             num_pages: 0,
             last_free_page: 0,
         }
     }
+}
 
-    pub fn with_pages(pages: Vec<Page>, num_pages: u64) -> Self {
-        Self {
-            last_free_page: if pages.len() > 0 { pages.len() - 1 } else { 0 },
-            pages: if pages.len() > 0 {
-                pages
-            } else {
-                vec![Page::new()]
-            },
-            num_pages,
-        }
-    }
+impl Write for Pager {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let mut bytes_written = 0;
+        while bytes_written < buf.len() {
+            let mut page = self.io.load_collection_page(self.last_free_page)?;
+            bytes_written += page.write(&buf[bytes_written..])?;
+            self.io
+                .flush_collection_page(self.last_free_page, &mut page)?;
 
-    pub fn write_bytes(&mut self, bytes: &[u8]) {
-        let page = self.pages.get_mut(self.last_free_page).unwrap();
-        let mut bytes_written = page.write_to_buffer(&bytes[..]);
-        loop {
-            if bytes_written == bytes.len() {
-                break;
+            if bytes_written < buf.len() {
+                self.last_free_page += 1;
             }
-
-            if self.pages.len() == self.last_free_page + 1 {
-                self.pages.push(Page::new());
-                self.num_pages += 1;
-            }
-            self.last_free_page += 1;
-            let page = self.pages.get_mut(self.last_free_page).unwrap();
-            bytes_written += page.write_to_buffer(&bytes[bytes_written..]);
         }
-    }
 
-    pub fn pages(&self) -> Vec<&Page> {
-        self.pages.iter().collect()
+        Ok(bytes_written)
     }
-
-    pub fn pages_ref(&self) -> &[Page] {
-        &self.pages
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
     }
+}
 
-    pub fn pages_ref_mut(&mut self) -> &mut [Page] {
-        &mut self.pages
-    }
+impl Read for Pager {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let mut bytes_read = 0;
+        let mut page_idx = 0;
+        while bytes_read < buf.len() {
+            let mut page = self.io.load_collection_page(page_idx)?;
+            bytes_read += page.read(buf)?;
+            page_idx += 1;
+        }
 
-    pub fn cursor(&self) -> Cursor {
-        Cursor::new(&self.pages)
+        Ok(bytes_read)
     }
 }
