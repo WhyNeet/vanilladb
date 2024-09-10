@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, fs, io, path::PathBuf};
 
 use crate::{collection::collection::Collection, io::io_config::IoConfig};
 
@@ -9,12 +9,14 @@ pub struct Database {
 }
 
 impl Database {
-    pub fn new(name: String, config: IoConfig) -> Self {
-        Self {
+    pub fn new(name: String, config: IoConfig) -> io::Result<Self> {
+        fs::create_dir_all(PathBuf::from(&config.data_dir()[..]).join(&name));
+
+        Ok(Self {
             name,
             collections: Vec::new(),
             config,
-        }
+        })
     }
 
     pub fn create_collection(&mut self, name: String) -> Result<&mut Collection, Box<dyn Error>> {
