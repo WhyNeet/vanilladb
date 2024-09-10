@@ -1,10 +1,10 @@
-pub struct IOConfig {
+pub struct IoConfig {
     data_dir: String,
 }
 
-impl IOConfig {
-    pub fn builder() -> IOConfigBuilder {
-        IOConfigBuilder::new()
+impl IoConfig {
+    pub fn builder() -> IoConfigBuilder {
+        IoConfigBuilder::new()
     }
 
     pub fn data_dir(&self) -> Box<str> {
@@ -12,11 +12,11 @@ impl IOConfig {
     }
 }
 
-pub struct IOConfigBuilder {
+pub struct IoConfigBuilder {
     data_dir: Option<String>,
 }
 
-impl IOConfigBuilder {
+impl IoConfigBuilder {
     pub fn new() -> Self {
         Self { data_dir: None }
     }
@@ -26,8 +26,8 @@ impl IOConfigBuilder {
         self
     }
 
-    pub fn build(self) -> IOConfig {
-        IOConfig {
+    pub fn build(self) -> IoConfig {
+        IoConfig {
             data_dir: self.data_dir.unwrap(),
         }
     }
