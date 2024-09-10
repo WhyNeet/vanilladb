@@ -1,33 +1,24 @@
-use std::{cell::RefCell, io, rc::Rc};
+use std::error::Error;
 
-use crate::{collection::collection::Collection, io::comet_io::CometIo};
+use crate::{collection::collection::Collection, io::io_config::IoConfig};
 
 pub struct Database {
     collections: Vec<Collection>,
     name: String,
-    io: Rc<RefCell<CometIo>>,
+    config: IoConfig,
 }
 
 impl Database {
-    pub fn new(name: String, io: Rc<RefCell<CometIo>>) -> Self {
+    pub fn new(name: String, config: IoConfig) -> Self {
         Self {
             name,
             collections: Vec::new(),
-            io,
+            config,
         }
     }
 
-    pub fn custom(collections: Vec<Collection>, name: String, io: Rc<RefCell<CometIo>>) -> Self {
-        Self {
-            collections,
-            name,
-            io,
-        }
-    }
-
-    pub fn create_collection(&mut self, name: String) -> io::Result<&mut Collection> {
-        self.io.borrow_mut().create_collection(&self.name, &name)?;
-        let collection = Collection::new(name);
+    pub fn create_collection(&mut self, name: String) -> Result<&mut Collection, Box<dyn Error>> {
+        let collection = Collection::new(&self.name, name, self.config.clone())?;
         self.collections.push(collection);
         Ok(self.collections.last_mut().unwrap())
     }
