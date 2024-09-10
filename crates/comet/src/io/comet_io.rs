@@ -1,6 +1,6 @@
 use std::{
     ffi::{c_void, CString},
-    io::{self, Error},
+    io::{self, Error, Write},
     os::fd::RawFd,
     path::PathBuf,
 };
@@ -67,13 +67,13 @@ impl CometIo {
         let bytes_written = unsafe {
             pwrite(
                 self.fd,
-                page.buffer_ptr(),
+                page.buffer().as_ptr() as *const c_void,
                 PAGE_SIZE,
                 (idx * PAGE_SIZE as u64) as i64,
             )
         };
 
-        page.after_flush();
+        page.flush();
 
         if bytes_written < 0 {
             Err(Error::last_os_error())
