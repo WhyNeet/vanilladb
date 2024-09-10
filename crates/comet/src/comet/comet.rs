@@ -28,7 +28,7 @@ impl Comet {
 
     pub fn create_database(&mut self, name: String) -> io::Result<&mut Database> {
         let database = Database::new(name, self.config.clone());
-        self.databases.push(database);
+        self.databases.push(database?);
         Ok(self.databases.last_mut().unwrap())
     }
 
