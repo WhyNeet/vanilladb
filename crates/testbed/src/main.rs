@@ -3,7 +3,7 @@ use std::io;
 use comet::{
     comet::Comet,
     document::Document,
-    io::{direct::direct_io::DirectIO, io_config::IOConfig},
+    io::{comet_io::CometIo, io_config::IOConfig},
 };
 use trail::field::Field;
 
@@ -13,7 +13,7 @@ fn main() -> io::Result<()> {
     let config = IOConfig::builder()
         .data_dir(".comet_data".to_string())
         .build();
-    let mut comet = Comet::new(DirectIO::new(config));
+    let mut comet = Comet::new(CometIo::new(config));
     comet.initialize().unwrap();
 
     let database = comet.create_database("primary".to_string())?;

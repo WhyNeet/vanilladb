@@ -10,16 +10,16 @@ use std::{
 };
 
 use crate::{
-    collection::Collection, database::database::Database, io::comet_io::CometIO, page::Page,
+    collection::Collection, database::database::Database, io::comet_io::CometIo, page::Page,
 };
 
 pub struct Comet {
     databases: Vec<Database>,
-    io: Rc<RefCell<dyn CometIO>>,
+    io: Rc<RefCell<CometIo>>,
 }
 
 impl Comet {
-    pub fn new(io: Rc<RefCell<dyn CometIO>>) -> Self {
+    pub fn new(io: Rc<RefCell<CometIo>>) -> Self {
         Comet {
             databases: Vec::new(),
             io,

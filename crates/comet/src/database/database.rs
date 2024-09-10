@@ -1,15 +1,15 @@
 use std::{cell::RefCell, io, rc::Rc};
 
-use crate::{collection::collection::Collection, io::comet_io::CometIO};
+use crate::{collection::collection::Collection, io::comet_io::CometIo};
 
 pub struct Database {
     collections: Vec<Collection>,
     name: String,
-    io: Rc<RefCell<dyn CometIO>>,
+    io: Rc<RefCell<CometIo>>,
 }
 
 impl Database {
-    pub fn new(name: String, io: Rc<RefCell<dyn CometIO>>) -> Self {
+    pub fn new(name: String, io: Rc<RefCell<CometIo>>) -> Self {
         Self {
             name,
             collections: Vec::new(),
@@ -17,11 +17,7 @@ impl Database {
         }
     }
 
-    pub fn custom(
-        collections: Vec<Collection>,
-        name: String,
-        io: Rc<RefCell<dyn CometIO>>,
-    ) -> Self {
+    pub fn custom(collections: Vec<Collection>, name: String, io: Rc<RefCell<CometIo>>) -> Self {
         Self {
             collections,
             name,
