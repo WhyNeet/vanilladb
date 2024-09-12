@@ -3,6 +3,7 @@ use std::{
     io::{self, Error, Write},
     os::fd::RawFd,
     path::PathBuf,
+    ptr,
 };
 
 use libc::{fstat, open, pread, pwrite, stat, O_CREAT, O_DIRECT, O_RDWR, S_IRUSR, S_IWUSR};
@@ -12,10 +13,13 @@ use crate::{
     page::{Page, PAGE_SIZE},
 };
 
+pub const IO_FLUSH_BUFFER_SIZE: usize = 5;
+
 pub struct CometIo {
     fd: RawFd,
-    config: IoConfig,
     total_pages: u64,
+    flush_buffer: [Option<(*mut Page, u64)>; IO_FLUSH_BUFFER_SIZE],
+    flush_buffer_pages: usize,
 }
 
 impl CometIo {
@@ -31,9 +35,10 @@ impl CometIo {
         let total_pages = size / PAGE_SIZE as u64;
 
         Ok(Self {
-            config,
             fd,
             total_pages,
+            flush_buffer: [None; IO_FLUSH_BUFFER_SIZE],
+            flush_buffer_pages: 0,
         })
     }
 
@@ -59,27 +64,45 @@ impl CometIo {
         self.total_pages
     }
 
+    fn flush_pages(&mut self) -> io::Result<()> {
+        for page in self.flush_buffer.iter().take_while(|page| page.is_some()) {
+            let (page, idx) = page.unwrap();
+
+            let bytes_written = unsafe {
+                pwrite(
+                    self.fd,
+                    page.as_ref().unwrap().buffer().as_ptr() as *const c_void,
+                    PAGE_SIZE,
+                    (idx * PAGE_SIZE as u64) as i64,
+                )
+            };
+
+            if bytes_written < 0 {
+                return Err(Error::last_os_error());
+            }
+
+            unsafe { page.as_mut().unwrap() }.flush()?;
+        }
+
+        self.flush_buffer = [None; IO_FLUSH_BUFFER_SIZE];
+        self.flush_buffer_pages = 0;
+
+        Ok(())
+    }
+
     pub fn flush_collection_page(
-        &self,
+        &mut self,
         idx: u64,
         page: &mut crate::page::Page,
     ) -> std::io::Result<()> {
-        let bytes_written = unsafe {
-            pwrite(
-                self.fd,
-                page.buffer().as_ptr() as *const c_void,
-                PAGE_SIZE,
-                (idx * PAGE_SIZE as u64) as i64,
-            )
-        };
-
-        page.flush();
-
-        if bytes_written < 0 {
-            Err(Error::last_os_error())
-        } else {
-            Ok(())
+        if self.flush_buffer_pages == self.flush_buffer.len() {
+            self.flush_pages()?;
         }
+
+        self.flush_buffer[self.flush_buffer_pages] = Some((page, idx));
+        self.flush_buffer_pages += 1;
+
+        Ok(())
     }
 
     pub fn load_collection_page(&self, idx: u64) -> io::Result<Page> {
@@ -96,5 +119,11 @@ impl CometIo {
         let page = Page::from_buffer(buffer);
 
         Ok(page)
+    }
+}
+
+impl Drop for CometIo {
+    fn drop(&mut self) {
+        self.flush_pages().unwrap();
     }
 }

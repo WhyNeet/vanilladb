@@ -1,5 +1,5 @@
 use std::{
-    io::{Read, Write},
+    io::{self, Read, Write},
     ptr,
 };
 
@@ -43,6 +43,10 @@ impl Page {
         PAGE_SIZE as u16 - self.occupied
     }
 
+    pub fn empty(&self) -> bool {
+        self.occupied == 2
+    }
+
     pub fn is_full(&self) -> bool {
         self.occupied == PAGE_SIZE as u16
     }
@@ -50,16 +54,13 @@ impl Page {
     pub fn is_dirty(&self) -> bool {
         self.dirty
     }
-}
 
-impl Write for Page {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        // if the length of the data is greater than the amount of free bytes, write till the end of the page
-        let bytes_to_write = buf.len().min(((PAGE_SIZE as u16) - self.occupied) as usize);
+    pub fn write_at(&mut self, buf: &[u8], offset: usize) -> io::Result<usize> {
+        let bytes_to_write = buf.len().min(PAGE_SIZE - offset);
         unsafe {
             ptr::copy_nonoverlapping(
                 buf.as_ptr(),
-                self.buffer.as_mut_ptr().add(self.occupied as usize),
+                self.buffer.as_mut_ptr().add(offset),
                 bytes_to_write,
             )
         };
@@ -69,6 +70,13 @@ impl Write for Page {
         self.update_occupied(self.occupied + bytes_to_write as u16);
 
         Ok(bytes_to_write)
+    }
+}
+
+impl Write for Page {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        // if the length of the data is greater than the amount of free bytes, write till the end of the page
+        self.write_at(buf, self.occupied as usize)
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
