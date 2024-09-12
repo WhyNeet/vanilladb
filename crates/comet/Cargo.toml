@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+io-uring = "0.6.4"
 libc = "0.2.158"
 trail = { path = "../trail" }
