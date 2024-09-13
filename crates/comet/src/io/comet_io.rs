@@ -6,6 +6,7 @@ use std::{
     ptr,
 };
 
+use io_uring::{opcode, types, IoUring};
 use libc::{fstat, open, pread, pwrite, stat, O_CREAT, O_DIRECT, O_RDWR, S_IRUSR, S_IWUSR};
 
 use crate::{
@@ -13,12 +14,13 @@ use crate::{
     page::{Page, PAGE_SIZE},
 };
 
-pub const IO_FLUSH_BUFFER_SIZE: usize = 5;
+pub const IO_FLUSH_BUFFER_SIZE: usize = 16;
 
 pub struct CometIo {
     fd: RawFd,
     total_pages: u64,
     flush_buffer: Vec<(Page, u64)>,
+    ring: IoUring,
 }
 
 impl CometIo {
@@ -37,6 +39,7 @@ impl CometIo {
             fd,
             total_pages,
             flush_buffer: Vec::with_capacity(IO_FLUSH_BUFFER_SIZE),
+            ring: IoUring::new(IO_FLUSH_BUFFER_SIZE as u32)?,
         })
     }
 
@@ -63,22 +66,22 @@ impl CometIo {
     }
 
     fn flush_pages(&mut self) -> io::Result<()> {
-        for (page, idx) in self.flush_buffer.iter_mut() {
-            let bytes_written = unsafe {
-                pwrite(
-                    self.fd,
-                    page.buffer().as_ptr() as *const c_void,
-                    PAGE_SIZE,
-                    (*idx * PAGE_SIZE as u64) as i64,
-                )
-            };
+        let ops = self.flush_buffer.iter_mut().map(|(page, idx)| {
+            page.flush().unwrap();
+            opcode::Write::new(
+                types::Fd(self.fd),
+                page.buffer().as_ptr(),
+                page.buffer().len() as u32,
+            )
+            .offset(*idx * PAGE_SIZE as u64)
+            .build()
+        });
 
-            if bytes_written < 0 {
-                return Err(Error::last_os_error());
-            }
-
-            page.flush()?;
+        for op in ops {
+            unsafe { self.ring.submission().push(&op).unwrap() };
         }
+
+        self.ring.submit_and_wait(1).unwrap();
 
         self.flush_buffer.clear();
 
