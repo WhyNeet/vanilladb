@@ -78,6 +78,8 @@ impl CometIo {
             if bytes_written < 0 {
                 return Err(Error::last_os_error());
             }
+
+            page.flush()?;
         }
 
         self.flush_buffer.clear();
@@ -89,14 +91,13 @@ impl CometIo {
     pub fn flush_collection_page(
         &mut self,
         idx: u64,
-        page: &mut crate::page::Page,
+        page: crate::page::Page,
     ) -> std::io::Result<()> {
         if self.flush_buffer_pages == self.flush_buffer.len() {
             self.flush_pages()?;
         }
 
-        page.flush()?;
-        self.flush_buffer.push((page.clone(), idx));
+        self.flush_buffer.push((page, idx));
         self.flush_buffer_pages += 1;
 
         Ok(())

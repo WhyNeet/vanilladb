@@ -25,8 +25,7 @@ impl Write for Pager {
         while bytes_written < buf.len() {
             let mut page = self.io.load_collection_page(self.last_free_page)?;
             bytes_written += page.write(&buf[bytes_written..])?;
-            self.io
-                .flush_collection_page(self.last_free_page, &mut page)?;
+            self.io.flush_collection_page(self.last_free_page, page)?;
 
             if bytes_written < buf.len() {
                 self.last_free_page += 1;
