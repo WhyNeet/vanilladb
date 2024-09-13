@@ -19,7 +19,6 @@ pub struct CometIo {
     fd: RawFd,
     total_pages: u64,
     flush_buffer: Vec<(Page, u64)>,
-    flush_buffer_pages: usize,
 }
 
 impl CometIo {
@@ -38,7 +37,6 @@ impl CometIo {
             fd,
             total_pages,
             flush_buffer: Vec::with_capacity(IO_FLUSH_BUFFER_SIZE),
-            flush_buffer_pages: 0,
         })
     }
 
@@ -83,7 +81,6 @@ impl CometIo {
         }
 
         self.flush_buffer.clear();
-        self.flush_buffer_pages = 0;
 
         Ok(())
     }
@@ -93,12 +90,11 @@ impl CometIo {
         idx: u64,
         page: crate::page::Page,
     ) -> std::io::Result<()> {
-        if self.flush_buffer_pages == self.flush_buffer.len() {
+        if self.flush_buffer.len() == self.flush_buffer.capacity() {
             self.flush_pages()?;
         }
 
         self.flush_buffer.push((page, idx));
-        self.flush_buffer_pages += 1;
 
         Ok(())
     }
