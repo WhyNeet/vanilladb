@@ -18,7 +18,7 @@ pub const IO_FLUSH_BUFFER_SIZE: usize = 5;
 pub struct CometIo {
     fd: RawFd,
     total_pages: u64,
-    flush_buffer: [Option<(*mut Page, u64)>; IO_FLUSH_BUFFER_SIZE],
+    flush_buffer: Vec<(Page, u64)>,
     flush_buffer_pages: usize,
 }
 
@@ -37,7 +37,7 @@ impl CometIo {
         Ok(Self {
             fd,
             total_pages,
-            flush_buffer: [None; IO_FLUSH_BUFFER_SIZE],
+            flush_buffer: Vec::with_capacity(IO_FLUSH_BUFFER_SIZE),
             flush_buffer_pages: 0,
         })
     }
@@ -65,26 +65,22 @@ impl CometIo {
     }
 
     fn flush_pages(&mut self) -> io::Result<()> {
-        for page in self.flush_buffer.iter().take_while(|page| page.is_some()) {
-            let (page, idx) = page.unwrap();
-
+        for (page, idx) in self.flush_buffer.iter_mut() {
             let bytes_written = unsafe {
                 pwrite(
                     self.fd,
-                    page.as_ref().unwrap().buffer().as_ptr() as *const c_void,
+                    page.buffer().as_ptr() as *const c_void,
                     PAGE_SIZE,
-                    (idx * PAGE_SIZE as u64) as i64,
+                    (*idx * PAGE_SIZE as u64) as i64,
                 )
             };
 
             if bytes_written < 0 {
                 return Err(Error::last_os_error());
             }
-
-            unsafe { page.as_mut().unwrap() }.flush()?;
         }
 
-        self.flush_buffer = [None; IO_FLUSH_BUFFER_SIZE];
+        self.flush_buffer.clear();
         self.flush_buffer_pages = 0;
 
         Ok(())
@@ -99,22 +95,33 @@ impl CometIo {
             self.flush_pages()?;
         }
 
-        self.flush_buffer[self.flush_buffer_pages] = Some((page, idx));
+        page.flush()?;
+        self.flush_buffer.push((page.clone(), idx));
         self.flush_buffer_pages += 1;
 
         Ok(())
     }
 
     pub fn load_collection_page(&self, idx: u64) -> io::Result<Page> {
+        let flush_buffer_page = self
+            .flush_buffer
+            .iter()
+            .find(|(_, page_idx)| *page_idx == idx);
+
         let mut buffer = Box::new([0u8; PAGE_SIZE]);
-        unsafe {
-            pread(
-                self.fd,
-                buffer.as_mut_ptr() as *mut c_void,
-                PAGE_SIZE,
-                (PAGE_SIZE as u64 * idx) as i64,
-            )
-        };
+        if let Some((page, _)) = flush_buffer_page {
+            let page_buffer = page.buffer();
+            unsafe { ptr::copy(page_buffer.as_ptr(), buffer.as_mut_ptr(), PAGE_SIZE) };
+        } else {
+            unsafe {
+                pread(
+                    self.fd,
+                    buffer.as_mut_ptr() as *mut c_void,
+                    PAGE_SIZE,
+                    (PAGE_SIZE as u64 * idx) as i64,
+                )
+            };
+        }
 
         let page = Page::from_buffer(buffer);
 

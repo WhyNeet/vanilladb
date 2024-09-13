@@ -5,6 +5,7 @@ use std::{
 
 use super::constants::PAGE_SIZE;
 
+#[derive(Debug, Clone)]
 pub struct Page {
     buffer: Box<[u8; PAGE_SIZE]>,
     occupied: u16,
@@ -22,11 +23,17 @@ impl Page {
     }
 
     pub fn from_buffer(buffer: Box<[u8; PAGE_SIZE]>) -> Self {
-        Self {
-            occupied: u16::from_le_bytes((&buffer[..2].try_into()).unwrap()),
+        let occupied = u16::from_le_bytes((&buffer[..2].try_into()).unwrap()).max(2);
+
+        let mut page = Self {
+            occupied,
             buffer,
             dirty: false,
-        }
+        };
+
+        page.update_occupied(occupied);
+
+        page
     }
 
     fn update_occupied(&mut self, occupied: u16) {
@@ -55,19 +62,19 @@ impl Page {
         self.dirty
     }
 
-    pub fn write_at(&mut self, buf: &[u8], offset: usize) -> io::Result<usize> {
-        let bytes_to_write = buf.len().min(PAGE_SIZE - offset);
+    pub fn write_at(&mut self, buf: &[u8], offset: u16) -> io::Result<usize> {
+        let bytes_to_write = buf.len().min(PAGE_SIZE - offset as usize);
         unsafe {
-            ptr::copy_nonoverlapping(
+            ptr::copy(
                 buf.as_ptr(),
-                self.buffer.as_mut_ptr().add(offset),
+                self.buffer.as_mut_ptr().add(offset as usize),
                 bytes_to_write,
             )
         };
 
         self.dirty = true;
 
-        self.update_occupied(self.occupied + bytes_to_write as u16);
+        self.update_occupied(offset + bytes_to_write as u16);
 
         Ok(bytes_to_write)
     }
@@ -76,7 +83,7 @@ impl Page {
 impl Write for Page {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         // if the length of the data is greater than the amount of free bytes, write till the end of the page
-        self.write_at(buf, self.occupied as usize)
+        self.write_at(buf, self.occupied)
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
