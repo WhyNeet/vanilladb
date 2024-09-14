@@ -5,7 +5,6 @@ use crate::io::comet_io::CometIo;
 /// Pager is an abstraction over hardware pages on the drive
 pub struct Pager {
     io: CometIo,
-    num_pages: u64,
     last_free_page: u64,
 }
 
@@ -13,7 +12,6 @@ impl Pager {
     pub fn new(io: CometIo) -> Self {
         Self {
             io,
-            num_pages: 0,
             last_free_page: 0,
         }
     }
