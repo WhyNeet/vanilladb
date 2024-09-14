@@ -95,6 +95,9 @@ impl Write for Page {
 impl Read for Page {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let bytes_to_read = buf.len().min(PAGE_SIZE - 2);
+        if bytes_to_read == 0 {
+            return Ok(0);
+        }
 
         unsafe {
             ptr::copy_nonoverlapping(
