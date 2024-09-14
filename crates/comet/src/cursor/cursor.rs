@@ -19,8 +19,10 @@ impl Cursor {
 
     pub fn next_document(&mut self) -> Result<(), Box<dyn Error>> {
         let current_size = self.current_document_size()? as usize;
-        let advance_pages = current_size / PAGE_SIZE;
-        let new_offset = current_size % PAGE_SIZE;
+        let new_offset = self.offset as usize + current_size;
+        let advance_pages = new_offset / PAGE_SIZE;
+        let new_offset = new_offset % PAGE_SIZE;
+
         self.page += advance_pages as u64;
         self.offset = new_offset as u16;
 
