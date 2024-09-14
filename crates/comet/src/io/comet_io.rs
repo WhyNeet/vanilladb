@@ -7,7 +7,7 @@ use std::{
 };
 
 use io_uring::{opcode, types, IoUring};
-use libc::{fstat, open, pread, pwrite, stat, O_CREAT, O_DIRECT, O_RDWR, S_IRUSR, S_IWUSR};
+use libc::{close, fstat, open, pread, pwrite, stat, O_CREAT, O_DIRECT, O_RDWR, S_IRUSR, S_IWUSR};
 
 use crate::{
     io::io_config::IoConfig,
@@ -81,7 +81,7 @@ impl CometIo {
             unsafe { self.ring.submission().push(&op).unwrap() };
         }
 
-        self.ring.submit_and_wait(1).unwrap();
+        self.ring.submit_and_wait(IO_FLUSH_BUFFER_SIZE).unwrap();
 
         self.flush_buffer.clear();
 
@@ -97,7 +97,15 @@ impl CometIo {
             self.flush_pages()?;
         }
 
-        self.flush_buffer.push((page, idx));
+        let page_pos = self
+            .flush_buffer
+            .iter()
+            .position(|(_, page_idx)| *page_idx == idx);
+        if let Some(pos) = page_pos {
+            self.flush_buffer[pos] = (page, idx);
+        } else {
+            self.flush_buffer.push((page, idx))
+        }
 
         Ok(())
     }
@@ -132,5 +140,6 @@ impl CometIo {
 impl Drop for CometIo {
     fn drop(&mut self) {
         self.flush_pages().unwrap();
+        unsafe { close(self.fd) };
     }
 }
