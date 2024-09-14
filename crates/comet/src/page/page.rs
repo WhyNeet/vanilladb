@@ -78,6 +78,23 @@ impl Page {
 
         Ok(bytes_to_write)
     }
+
+    pub fn read_at(&mut self, buf: &mut [u8], offset: u16) -> io::Result<usize> {
+        let bytes_to_read = buf.len().min(PAGE_SIZE - offset as usize);
+        if bytes_to_read == 0 {
+            return Ok(0);
+        }
+
+        unsafe {
+            ptr::copy_nonoverlapping(
+                &self.buffer[(offset as usize)..bytes_to_read] as *const [u8] as *const u8,
+                buf.as_mut_ptr(),
+                bytes_to_read,
+            )
+        };
+
+        Ok(bytes_to_read)
+    }
 }
 
 impl Write for Page {
@@ -94,19 +111,6 @@ impl Write for Page {
 
 impl Read for Page {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let bytes_to_read = buf.len().min(PAGE_SIZE - 2);
-        if bytes_to_read == 0 {
-            return Ok(0);
-        }
-
-        unsafe {
-            ptr::copy_nonoverlapping(
-                &self.buffer[2..bytes_to_read] as *const [u8] as *const u8,
-                buf.as_mut_ptr(),
-                bytes_to_read,
-            )
-        };
-
-        Ok(bytes_to_read)
+        self.read_at(buf, 2)
     }
 }
