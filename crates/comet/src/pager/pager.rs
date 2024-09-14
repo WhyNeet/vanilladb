@@ -1,4 +1,4 @@
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 
 use crate::io::comet_io::CometIo;
 
@@ -14,6 +14,21 @@ impl Pager {
             io,
             last_free_page: 0,
         }
+    }
+
+    pub fn read_at(&self, buf: &mut [u8], offset: (u64, u16)) -> io::Result<usize> {
+        let mut bytes_read = 0;
+        let mut page_idx = offset.0;
+        let mut page = self.io.load_collection_page(page_idx)?;
+        bytes_read += page.read(&mut buf[(offset.1 as usize)..])?;
+        page_idx += 1;
+        while bytes_read < buf.len() {
+            let mut page = self.io.load_collection_page(page_idx)?;
+            bytes_read += page.read(&mut buf[bytes_read..])?;
+            page_idx += 1;
+        }
+
+        Ok(bytes_read)
     }
 }
 
@@ -39,14 +54,6 @@ impl Write for Pager {
 
 impl Read for Pager {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let mut bytes_read = 0;
-        let mut page_idx = 0;
-        while bytes_read < buf.len() {
-            let mut page = self.io.load_collection_page(page_idx)?;
-            bytes_read += page.read(&mut buf[bytes_read..])?;
-            page_idx += 1;
-        }
-
-        Ok(bytes_read)
+        self.read_at(buf, (0, 0))
     }
 }
