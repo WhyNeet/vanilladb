@@ -87,7 +87,7 @@ impl Page {
 
         unsafe {
             ptr::copy_nonoverlapping(
-                &self.buffer[(offset as usize)..bytes_to_read] as *const [u8] as *const u8,
+                &self.buffer[(offset as usize)..] as *const [u8] as *const u8,
                 buf.as_mut_ptr(),
                 bytes_to_read,
             )

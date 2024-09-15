@@ -19,7 +19,7 @@ impl Cursor {
 
     pub fn next_document(&mut self) -> Result<(), Box<dyn Error>> {
         let current_size = self.current_document_size()? as usize;
-        let new_offset = self.offset as usize + current_size;
+        let new_offset = self.offset as usize + current_size + 4;
         let advance_pages = new_offset / PAGE_SIZE;
         let new_offset = new_offset % PAGE_SIZE;
 
@@ -31,10 +31,12 @@ impl Cursor {
 
     pub fn read_current_document(&self) -> Result<Document, Box<dyn Error>> {
         let current_size = self.current_document_size()? as usize;
-        let mut buffer = vec![0u8; current_size].into_boxed_slice();
+        // take 4 bytes with document size into account
+        let mut buffer = vec![0u8; current_size + 4].into_boxed_slice();
         self.pager
             .borrow()
             .read_at(&mut buffer, (self.page, self.offset))?;
+
         let document = Document::deserialize(&buffer)?;
 
         Ok(document)

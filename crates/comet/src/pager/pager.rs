@@ -20,7 +20,7 @@ impl Pager {
         let mut bytes_read = 0;
         let mut page_idx = offset.0;
         let mut page = self.io.load_collection_page(page_idx)?;
-        bytes_read += page.read(&mut buf[bytes_read..])?;
+        bytes_read += page.read_at(&mut buf[bytes_read..], offset.1)?;
         page_idx += 1;
         while bytes_read < buf.len() {
             let mut page = self.io.load_collection_page(page_idx)?;
