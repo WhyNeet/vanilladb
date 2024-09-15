@@ -24,7 +24,8 @@ impl Cursor {
         let new_offset = new_offset % PAGE_SIZE;
 
         self.page += advance_pages as u64;
-        self.offset = new_offset as u16;
+        // add 2 to the offset to include the new page's first two bytes
+        self.offset = new_offset as u16 + if advance_pages > 0 { 2 } else { 0 };
 
         Ok(())
     }

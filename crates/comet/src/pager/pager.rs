@@ -19,14 +19,22 @@ impl Pager {
     pub fn read_at(&self, buf: &mut [u8], offset: (u64, u16)) -> io::Result<usize> {
         let mut bytes_read = 0;
         let mut page_idx = offset.0;
+        // println!("[pager] read {} bytes", buf.len());
         let mut page = self.io.load_collection_page(page_idx)?;
         bytes_read += page.read_at(&mut buf[bytes_read..], offset.1)?;
+        // println!(
+        //     "[pager] first page read ({page_idx}, {}): {bytes_read}",
+        //     offset.1
+        // );
         page_idx += 1;
         while bytes_read < buf.len() {
             let mut page = self.io.load_collection_page(page_idx)?;
             bytes_read += page.read(&mut buf[bytes_read..])?;
             page_idx += 1;
+            // println!("[pager] additional page read ({page_idx}): {bytes_read}");
         }
+
+        // println!("[pager] bytes read: {:?}", &buf[..(buf.len().min(100))]);
 
         Ok(bytes_read)
     }
