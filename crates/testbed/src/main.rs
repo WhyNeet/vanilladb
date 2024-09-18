@@ -25,12 +25,15 @@ fn read() -> Result<(), Box<dyn Error>> {
 
     let mut cursor = collection.cursor();
 
-    for _ in 0..50 {
+    for _ in 0..10 {
         cursor.next_document()?;
     }
 
     let document = cursor.read_current_document()?;
     println!("document: {document:?}");
+
+    cursor.remove_current_document().unwrap();
+    println!("removed");
 
     println!("--- done ---");
 
