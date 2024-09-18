@@ -43,6 +43,17 @@ impl Cursor {
         Ok(document)
     }
 
+    pub fn remove_current_document(&self) -> Result<(), Box<dyn Error>> {
+        let current_size = self.current_document_size()? as usize;
+        let bytes_to_remove = current_size + 4;
+
+        self.pager
+            .borrow_mut()
+            .write_at(&vec![0u8; bytes_to_remove], Some((self.page, self.offset)))?;
+
+        Ok(())
+    }
+
     pub fn current_document_size(&self) -> Result<u32, Box<dyn Error>> {
         let mut size = [0u8; 4];
         self.pager
