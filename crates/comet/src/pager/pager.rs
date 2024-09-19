@@ -31,6 +31,16 @@ impl Pager {
         Ok(bytes_read)
     }
 
+    pub fn buffer(&self, offset: u64) -> io::Result<Box<[u8]>> {
+        let page = self.io.load_collection_page(offset)?;
+        Ok(page
+            .buffer()
+            .into_iter()
+            .map(|&b| b)
+            .collect::<Vec<u8>>()
+            .into_boxed_slice())
+    }
+
     pub fn write_at(&mut self, buf: &[u8], offset: Option<(u64, u16)>) -> io::Result<usize> {
         let mut bytes_written = 0;
         let mut page = self
