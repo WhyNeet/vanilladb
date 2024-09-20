@@ -27,8 +27,8 @@ impl Deserialize for HashMap<String, Field> {
         while byte_offset < from.len() {
             let field_name_length = 'block: {
                 for idx in byte_offset..from.len() {
-                    if from[idx] == 0 && from[idx - 1] != b'\\' {
-                        break 'block Some(idx);
+                    if from[idx + 1] == 0 && from[idx] != b'\\' {
+                        break 'block Some(idx + 1);
                     }
                 }
 
