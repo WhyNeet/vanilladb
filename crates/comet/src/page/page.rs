@@ -96,6 +96,8 @@ impl Page {
             );
         };
 
+        self.dirty = true;
+
         Ok(bytes_to_erase)
     }
 

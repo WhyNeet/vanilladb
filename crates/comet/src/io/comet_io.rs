@@ -66,16 +66,20 @@ impl CometIo {
     }
 
     fn flush_pages(&mut self) -> io::Result<()> {
-        let ops = self.flush_buffer.iter_mut().map(|(page, idx)| {
-            page.flush().unwrap();
-            opcode::Write::new(
-                types::Fd(self.fd),
-                page.buffer().as_ptr(),
-                page.buffer().len() as u32,
-            )
-            .offset(*idx * PAGE_SIZE as u64)
-            .build()
-        });
+        let ops = self
+            .flush_buffer
+            .iter_mut()
+            .filter(|(page, _)| page.is_dirty())
+            .map(|(page, idx)| {
+                page.flush().unwrap();
+                opcode::Write::new(
+                    types::Fd(self.fd),
+                    page.buffer().as_ptr(),
+                    page.buffer().len() as u32,
+                )
+                .offset(*idx * PAGE_SIZE as u64)
+                .build()
+            });
 
         for op in ops {
             unsafe { self.ring.submission().push(&op).unwrap() };
