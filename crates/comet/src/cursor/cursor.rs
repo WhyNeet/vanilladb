@@ -8,6 +8,14 @@ pub struct Cursor {
     pager: Rc<RefCell<Pager>>,
 }
 
+fn is_zero(buf: &[u8]) -> bool {
+    let (prefix, aligned, suffix) = unsafe { buf.align_to::<u128>() };
+
+    prefix.iter().all(|&x| x == 0)
+        && suffix.iter().all(|&x| x == 0)
+        && aligned.iter().all(|&x| x == 0)
+}
+
 impl Cursor {
     pub fn new(pager: Rc<RefCell<Pager>>) -> Self {
         Self {
@@ -51,6 +59,16 @@ impl Cursor {
             .erase_at(current_size, (self.page, self.offset + 4))?;
 
         Ok(())
+    }
+
+    pub fn is_current_document_removed(&self) -> Result<bool, Box<dyn Error>> {
+        let current_size = self.current_document_size()? as usize;
+        let mut bytes = vec![0u8; current_size].into_boxed_slice();
+        self.pager
+            .borrow()
+            .read_at(&mut bytes[..], (self.page, self.offset + 4))?;
+
+        Ok(is_zero(&bytes))
     }
 
     pub fn current_document_size(&self) -> Result<u32, Box<dyn Error>> {
