@@ -59,6 +59,23 @@ impl Pager {
 
         Ok((bytes_written, page_idx))
     }
+
+    pub fn erase_at(&mut self, size: usize, offset: (u64, u16)) -> io::Result<usize> {
+        let mut bytes_erased = 0;
+        let mut page_idx = offset.0;
+        let mut page = self.io.load_collection_page(page_idx)?;
+        bytes_erased += page.erase_at(size, offset.1)?;
+        self.io.flush_collection_page(page_idx, page)?;
+
+        while bytes_erased < size {
+            page_idx += 1;
+            let mut page = self.io.load_collection_page(page_idx)?;
+            bytes_erased += page.erase_at(size - bytes_erased, 2)?;
+            self.io.flush_collection_page(page_idx, page)?;
+        }
+
+        Ok(bytes_erased)
+    }
 }
 
 impl Write for Pager {

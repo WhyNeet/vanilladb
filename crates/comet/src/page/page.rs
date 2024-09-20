@@ -85,6 +85,20 @@ impl Page {
         Ok(bytes_to_write)
     }
 
+    pub fn erase_at(&mut self, size: usize, offset: u16) -> io::Result<usize> {
+        let bytes_to_erase = size.min(PAGE_SIZE - offset as usize);
+
+        unsafe {
+            ptr::copy(
+                vec![0u8; bytes_to_erase].as_ptr(),
+                self.buffer.as_mut_ptr().add(offset as usize),
+                bytes_to_erase,
+            );
+        };
+
+        Ok(bytes_to_erase)
+    }
+
     pub fn read_at(&mut self, buf: &mut [u8], offset: u16) -> io::Result<usize> {
         let bytes_to_read = buf.len().min(PAGE_SIZE - offset as usize);
         if bytes_to_read == 0 {
