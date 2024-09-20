@@ -41,33 +41,29 @@ impl Pager {
             .into_boxed_slice())
     }
 
-    pub fn write_at(&mut self, buf: &[u8], offset: Option<(u64, u16)>) -> io::Result<usize> {
+    pub fn write_at(&mut self, buf: &[u8], offset: (u64, u16)) -> io::Result<(usize, u64)> {
         let mut bytes_written = 0;
-        let mut page = self
-            .io
-            .load_collection_page(offset.unwrap_or((self.last_free_page, 2)).0)?;
-        bytes_written += if offset.is_some() {
-            page.write_at(&buf[bytes_written..], offset.unwrap().1)?
-        } else {
-            page.write(&buf[bytes_written..])?
-        };
-        self.io.flush_collection_page(self.last_free_page, page)?;
-        let mut page_idx = offset.unwrap_or((self.last_free_page, 0)).0 + 1;
+        let mut page_idx = offset.0;
+        let mut page = self.io.load_collection_page(page_idx)?;
+        bytes_written += page.write_at(&buf[bytes_written..], offset.1)?;
+        self.io.flush_collection_page(page_idx, page)?;
+
         while bytes_written < buf.len() {
+            page_idx += 1;
             let mut page = self.io.load_collection_page(page_idx)?;
             bytes_written += page.write_at(&buf[bytes_written..], 2)?;
-            self.io.flush_collection_page(self.last_free_page, page)?;
-
-            page_idx += 1;
+            self.io.flush_collection_page(page_idx, page)?;
         }
 
-        Ok(bytes_written)
+        self.last_free_page = page_idx;
+
+        Ok((bytes_written, page_idx))
     }
 }
 
 impl Write for Pager {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.write_at(buf, None)
+        Ok(self.write_at(buf, (self.last_free_page, 2))?.0)
     }
     fn flush(&mut self) -> std::io::Result<()> {
         Ok(())

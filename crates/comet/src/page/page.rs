@@ -63,6 +63,12 @@ impl Page {
     }
 
     pub fn write_at(&mut self, buf: &[u8], offset: u16) -> io::Result<usize> {
+        let offset = if offset < self.occupied {
+            self.occupied
+        } else {
+            offset
+        };
+
         let bytes_to_write = buf.len().min(PAGE_SIZE - offset as usize);
         unsafe {
             ptr::copy(

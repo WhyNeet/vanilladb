@@ -7,7 +7,7 @@ use std::{
 };
 
 use io_uring::{opcode, types, IoUring};
-use libc::{close, fstat, open, pread, pwrite, stat, O_CREAT, O_DIRECT, O_RDWR, S_IRUSR, S_IWUSR};
+use libc::{close, fstat, open, pread, stat, O_CREAT, O_DIRECT, O_RDWR, S_IRUSR, S_IWUSR};
 
 use crate::{
     io::io_config::IoConfig,

@@ -47,10 +47,9 @@ impl Cursor {
         let current_size = self.current_document_size()? as usize;
         let bytes_to_remove = current_size;
 
-        self.pager.borrow_mut().write_at(
-            &vec![0u8; bytes_to_remove],
-            Some((self.page, self.offset + 4)),
-        )?;
+        self.pager
+            .borrow_mut()
+            .write_at(&vec![0u8; bytes_to_remove], (self.page, self.offset + 4))?;
 
         Ok(())
     }
