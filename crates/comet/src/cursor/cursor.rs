@@ -1,19 +1,11 @@
 use std::{cell::RefCell, error::Error, rc::Rc};
 
-use crate::{document::Document, page::PAGE_SIZE, pager::Pager};
+use crate::{document::Document, page::PAGE_SIZE, pager::Pager, util};
 
 pub struct Cursor {
     page: u64,
     offset: u16,
     pager: Rc<RefCell<Pager>>,
-}
-
-fn is_zero(buf: &[u8]) -> bool {
-    let (prefix, aligned, suffix) = unsafe { buf.align_to::<u128>() };
-
-    prefix.iter().all(|&x| x == 0)
-        && suffix.iter().all(|&x| x == 0)
-        && aligned.iter().all(|&x| x == 0)
 }
 
 impl Cursor {
@@ -68,7 +60,7 @@ impl Cursor {
             .borrow()
             .read_at(&mut bytes[..], (self.page, self.offset + 4))?;
 
-        Ok(is_zero(&bytes))
+        Ok(util::buf::is_zero(&bytes))
     }
 
     pub fn current_document_size(&self) -> Result<u32, Box<dyn Error>> {
