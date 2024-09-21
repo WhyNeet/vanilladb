@@ -85,6 +85,23 @@ impl Page {
         Ok(bytes_to_write)
     }
 
+    pub fn replace_at(&mut self, buf: &[u8], offset: u16) -> io::Result<usize> {
+        let bytes_to_write = buf.len().min(PAGE_SIZE - offset as usize);
+        unsafe {
+            ptr::copy(
+                buf.as_ptr(),
+                self.buffer.as_mut_ptr().add(offset as usize),
+                bytes_to_write,
+            )
+        };
+
+        self.dirty = true;
+
+        self.update_occupied(offset + bytes_to_write as u16);
+
+        Ok(bytes_to_write)
+    }
+
     pub fn erase_at(&mut self, size: usize, offset: u16) -> io::Result<usize> {
         let bytes_to_erase = size.min(PAGE_SIZE - offset as usize);
 

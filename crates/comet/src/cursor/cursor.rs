@@ -1,4 +1,4 @@
-use std::{cell::RefCell, error::Error, rc::Rc};
+use std::{cell::RefCell, error::Error, io, rc::Rc};
 
 use crate::{document::Document, page::PAGE_SIZE, pager::Pager, util};
 
@@ -61,6 +61,29 @@ impl Cursor {
             .read_at(&mut bytes[..], (self.page, self.offset + 4))?;
 
         Ok(util::buf::is_zero(&bytes))
+    }
+
+    pub fn insert_document(&self, document: &Document) -> Result<(), Box<dyn Error>> {
+        if !self.is_current_document_removed()? {
+            return Err(Box::new(io::Error::other("current document is not empty")));
+        }
+
+        let current_document_size = self.current_document_size()?;
+
+        if current_document_size < document.size() {
+            return Err(Box::new(io::Error::other(
+                "the document provided is larger than current gap",
+            )));
+        }
+
+        let buffer = document.serialize()?;
+        println!("insert {} into gap {current_document_size}", buffer.len());
+
+        self.pager
+            .borrow_mut()
+            .replace_at(&buffer, (self.page, self.offset))?;
+
+        Ok(())
     }
 
     pub fn current_document_size(&self) -> Result<u32, Box<dyn Error>> {
