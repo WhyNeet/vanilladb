@@ -32,9 +32,12 @@ fn read() -> Result<(), Box<dyn Error>> {
     let document = cursor.read_current_document()?;
     println!("document: {document:?}");
 
-    cursor.remove_current_document().unwrap();
-    println!("removed");
-
+    if cursor.is_current_document_removed()? {
+        println!("current document is removed");
+    } else {
+        cursor.remove_current_document().unwrap();
+        println!("removed");
+    }
     println!("--- done ---");
 
     Ok(())
