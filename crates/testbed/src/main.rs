@@ -33,7 +33,15 @@ fn read() -> Result<(), Box<dyn Error>> {
     println!("document: {document:?}");
 
     if cursor.is_current_document_removed()? {
-        println!("current document is removed");
+        println!("current document is already removed, inserting a new one");
+        let mut document = Document::new();
+        document
+            .append_field("id".to_string(), Field::uint32(10))
+            .append_field(
+                "username".to_string(),
+                Field::string("new user 10".to_string()),
+            );
+        cursor.insert_document(&document).unwrap();
     } else {
         cursor.remove_current_document().unwrap();
         println!("removed");
