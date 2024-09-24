@@ -77,7 +77,6 @@ impl Cursor {
         }
 
         let buffer = document.serialize()?;
-        println!("insert {} into gap {current_document_size}", buffer.len());
 
         self.pager
             .borrow_mut()
