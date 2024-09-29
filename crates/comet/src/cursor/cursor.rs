@@ -89,19 +89,17 @@ impl Cursor {
 
         document.serialize_into_buffer(&mut buffer)?;
 
-        println!("[cursor] current: {current_document_size}, insert: {insert_document_size}. gap: {has_gap}");
-
         let bytes_left = current_document_size - insert_document_size - if has_gap { 4 } else { 0 };
         let bytes_left = bytes_left.to_le_bytes();
 
-        println!("[cursor] insert document of size {insert_document_size}: {buffer:?}");
-
-        unsafe {
-            ptr::copy_nonoverlapping(
-                bytes_left.as_ptr(),
-                buffer[(insert_document_size as usize)..].as_mut_ptr(),
-                bytes_left.len(),
-            )
+        if has_gap {
+            unsafe {
+                ptr::copy_nonoverlapping(
+                    bytes_left.as_ptr(),
+                    buffer[(4 + insert_document_size as usize)..].as_mut_ptr(),
+                    bytes_left.len(),
+                )
+            }
         };
 
         self.pager
