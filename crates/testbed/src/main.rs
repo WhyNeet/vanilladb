@@ -25,14 +25,11 @@ fn read() -> Result<(), Box<dyn Error>> {
 
     let mut cursor = collection.cursor();
 
-    for _ in 0..10 {
+    for _ in 0..5 {
         cursor.next_document()?;
     }
 
-    let document = cursor.read_current_document()?;
-    println!("document: {document:?}");
-
-    if cursor.is_current_document_removed()? {
+    let document = if cursor.is_current_document_removed()? {
         println!("current document is already removed, inserting a new one");
         let mut document = Document::new();
         document
@@ -42,10 +39,14 @@ fn read() -> Result<(), Box<dyn Error>> {
                 Field::string("new user 10".to_string()),
             );
         cursor.insert_document(&document).unwrap();
+        Some(document)
     } else {
         cursor.remove_current_document().unwrap();
         println!("removed");
-    }
+        None
+    };
+    println!("document: {document:?}");
+
     println!("--- done ---");
 
     Ok(())
@@ -63,7 +64,7 @@ fn write() -> Result<(), Box<dyn Error>> {
     let database = comet.create_database("primary".to_string())?;
     let collection = database.create_collection("users".to_string()).unwrap();
 
-    for i in 0..1000 {
+    for i in 0..10 {
         let mut document = Document::new();
         document.append_field("id".to_string(), Field::uint32(i));
         document.append_field("username".to_string(), Field::string(format!("user {i}")));
