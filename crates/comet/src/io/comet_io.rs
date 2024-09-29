@@ -12,6 +12,7 @@ use libc::{close, fstat, open, pread, stat, O_CREAT, O_DIRECT, O_RDWR, S_IRUSR, 
 use crate::{
     io::io_config::IoConfig,
     page::{Page, PAGE_SIZE},
+    util,
 };
 
 pub const IO_FLUSH_BUFFER_SIZE: usize = 16;
@@ -31,7 +32,7 @@ impl CometIo {
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let collection_file_path = PathBuf::from(&config.data_dir()[..])
             .join(db)
-            .join(collection);
+            .join(util::path::collection_name_file(collection));
         let (fd, size) = CometIo::get_file_data(collection_file_path);
         let total_pages = size / PAGE_SIZE as u64;
 
