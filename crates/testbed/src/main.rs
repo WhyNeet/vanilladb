@@ -25,7 +25,7 @@ fn read() -> Result<(), Box<dyn Error>> {
 
     let mut cursor = collection.cursor();
 
-    for _ in 0..5 {
+    for i in 0..4 {
         cursor.next_document()?;
     }
 
@@ -39,11 +39,12 @@ fn read() -> Result<(), Box<dyn Error>> {
                 Field::string("new user 10".to_string()),
             );
         cursor.insert_document(&document).unwrap();
-        Some(document)
+        document
     } else {
+        let document = cursor.read_current_document()?;
         cursor.remove_current_document().unwrap();
         println!("removed");
-        None
+        document
     };
     println!("document: {document:?}");
 
