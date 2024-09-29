@@ -1,4 +1,4 @@
-use std::{cell::RefCell, error::Error, io, rc::Rc};
+use std::{cell::RefCell, error::Error, io, ptr, rc::Rc};
 
 use crate::{document::Document, page::PAGE_SIZE, pager::Pager, util};
 
@@ -68,15 +68,41 @@ impl Cursor {
             return Err(Box::new(io::Error::other("current document is not empty")));
         }
 
+        // current document size + document size header length (4 bytes, u32)
         let current_document_size = self.current_document_size()?;
+        let insert_document_size = document.size();
+        let has_gap = current_document_size != insert_document_size;
 
-        if current_document_size < document.size() {
+        // current gap should be able to contain the new document + after-document gap
+        // the new document could be smaller than previous
+        // so maintain a number after that document to tell how much empty space is left
+        // if the new document size is same as previous, there is no need for an additional number
+        if !has_gap && current_document_size < insert_document_size + if has_gap { 4 } else { 0 } {
             return Err(Box::new(io::Error::other(
                 "the document provided is larger than current gap",
             )));
         }
 
-        let buffer = document.serialize()?;
+        // 4-byte size header + document size + 4-byte gap size
+        let mut buffer = vec![0u8; 4 + insert_document_size as usize + if has_gap { 4 } else { 0 }]
+            .into_boxed_slice();
+
+        document.serialize_into_buffer(&mut buffer)?;
+
+        println!("[cursor] current: {current_document_size}, insert: {insert_document_size}. gap: {has_gap}");
+
+        let bytes_left = current_document_size - insert_document_size - if has_gap { 4 } else { 0 };
+        let bytes_left = bytes_left.to_le_bytes();
+
+        println!("[cursor] insert document of size {insert_document_size}: {buffer:?}");
+
+        unsafe {
+            ptr::copy_nonoverlapping(
+                bytes_left.as_ptr(),
+                buffer[(insert_document_size as usize)..].as_mut_ptr(),
+                bytes_left.len(),
+            )
+        };
 
         self.pager
             .borrow_mut()

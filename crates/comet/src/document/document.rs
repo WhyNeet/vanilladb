@@ -55,6 +55,24 @@ impl Document {
         Ok(buffer)
     }
 
+    pub fn serialize_into_buffer(&self, buffer: &mut [u8]) -> Result<(), Box<dyn Error>> {
+        let size = self.map.size();
+
+        let size = size.to_le_bytes();
+        unsafe { ptr::copy_nonoverlapping(size.as_ptr(), buffer.as_mut_ptr(), size.len()) };
+
+        let data = self.map.serialize()?;
+        unsafe {
+            ptr::copy_nonoverlapping(
+                data.as_ptr(),
+                buffer.as_mut_ptr().add(mem::size_of::<u32>()),
+                data.len(),
+            )
+        };
+
+        Ok(())
+    }
+
     pub fn deserialize(src: &[u8]) -> Result<Self, Box<dyn Error>> {
         let map = HashMap::<String, Field>::deserialize(&src[mem::size_of::<u32>()..])?;
 
