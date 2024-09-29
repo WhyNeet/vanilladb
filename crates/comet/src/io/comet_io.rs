@@ -66,6 +66,8 @@ impl CometIo {
     }
 
     fn flush_pages(&mut self) -> io::Result<()> {
+        let mut ops_len = 0;
+
         let ops = self
             .flush_buffer
             .iter_mut()
@@ -82,10 +84,11 @@ impl CometIo {
             });
 
         for op in ops {
+            ops_len += 1;
             unsafe { self.ring.submission().push(&op).unwrap() };
         }
 
-        self.ring.submit_and_wait(IO_FLUSH_BUFFER_SIZE).unwrap();
+        self.ring.submit_and_wait(ops_len).unwrap();
 
         self.flush_buffer.clear();
 
