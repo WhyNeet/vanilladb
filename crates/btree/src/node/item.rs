@@ -2,6 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use super::BTreeNode;
 
+#[derive(Debug)]
 pub enum BTreeNodeItem<Key, Value> {
     Pointer(Rc<RefCell<BTreeNode<Key, Value>>>),
     Key(Key),

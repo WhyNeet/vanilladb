@@ -2,6 +2,7 @@ use item::BTreeNodeItem;
 
 pub mod item;
 
+#[derive(Debug)]
 pub struct BTreeNode<Key, Value> {
     items: Vec<BTreeNodeItem<Key, Value>>,
     internal: bool,

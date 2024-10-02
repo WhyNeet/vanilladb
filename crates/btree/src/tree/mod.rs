@@ -3,6 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use crate::node::{item::BTreeNodeItem, BTreeNode};
 
 /// B+ Tree
+#[derive(Debug)]
 pub struct BTree<Key: std::cmp::PartialOrd, Value> {
     max_degree: usize,
     root: Rc<RefCell<BTreeNode<Key, Value>>>,
