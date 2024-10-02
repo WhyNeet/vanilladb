@@ -4,8 +4,7 @@ use super::BTreeNode;
 
 #[derive(Debug)]
 pub enum BTreeNodeItem<Key, Value> {
-    Pointer(Rc<RefCell<BTreeNode<Key, Value>>>),
-    Key(Key),
+    Pointer(Key, Rc<RefCell<BTreeNode<Key, Value>>>),
     Pair(Key, Value),
 }
 
@@ -17,16 +16,9 @@ impl<Key, Value> BTreeNodeItem<Key, Value> {
         }
     }
 
-    pub fn as_key(&self) -> &Key {
+    pub fn as_pointer(&self) -> (&Key, &Rc<RefCell<BTreeNode<Key, Value>>>) {
         match self {
-            BTreeNodeItem::Key(k) => k,
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn as_pointer(&self) -> &Rc<RefCell<BTreeNode<Key, Value>>> {
-        match self {
-            BTreeNodeItem::Pointer(ptr) => ptr,
+            BTreeNodeItem::Pointer(key, ptr) => (key, ptr),
             _ => unreachable!(),
         }
     }

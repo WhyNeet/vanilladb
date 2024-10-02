@@ -35,16 +35,37 @@ where
 
     fn _insert(&self, root: Rc<RefCell<BTreeNode<Key, Value>>>, kv: (Key, Value)) {
         if root.borrow().is_internal() {
+            let mut root = root.borrow_mut();
+            let ptr = root
+                .items()
+                .iter()
+                .map(|item| item.as_pointer())
+                .find(|&(k, _v)| k.ge(&kv.0));
+
+            if let Some((_k, ptr)) = ptr {
+                // if there is a pointer to the right
+                self._insert(Rc::clone(ptr), kv);
+            } else {
+                // create a new leaf node if no item is greater than key
+                let leaf = Rc::new(RefCell::new(BTreeNode::<Key, Value>::empty(false)));
+                let idx = root
+                    .items()
+                    .iter()
+                    .map(|item| item.as_pointer())
+                    .position(|(k, _ptr)| k.ge(&kv.0))
+                    .unwrap_or(root.items().len());
+                root.insert(BTreeNodeItem::Pointer(kv.0, leaf), idx);
+            }
         } else {
             // if the node is a leaf node
-            // insert the new KV pair before
+            // insert the new KV pair before the first larger key
 
             let idx = root
                 .borrow()
                 .items()
-                .into_iter()
+                .iter()
                 .map(|item| item.as_pair())
-                .position(|(k, _v)| k.partial_cmp(&kv.0).unwrap().is_ge())
+                .position(|(k, _v)| k.ge(&kv.0))
                 .map(|pos| pos)
                 .unwrap_or(root.borrow().items().len());
             root.borrow_mut()
