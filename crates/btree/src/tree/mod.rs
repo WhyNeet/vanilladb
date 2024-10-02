@@ -1,11 +1,12 @@
 use crate::node::BTreeNode;
 
-pub struct BTree<Value> {
+/// B+ Tree
+pub struct BTree<Key, Value> {
     max_degree: usize,
-    root: BTreeNode<Value>,
+    root: BTreeNode<Key, Value>,
 }
 
-impl<Value> BTree<Value> {
+impl<Key, Value> BTree<Key, Value> {
     pub fn new(max_degree: usize) -> Self {
         Self {
             max_degree,

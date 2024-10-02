@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use super::BTreeNode;
 
-pub enum BTreeNodeItem<Value> {
+pub enum BTreeNodeItem<Key, Value> {
     Pointer(Rc<BTreeNode<Value>>),
-    Key(Value),
+    Key(Key, Value),
 }
