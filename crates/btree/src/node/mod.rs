@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Weak};
+
 use item::BTreeNodeItem;
 
 pub mod item;
@@ -6,13 +8,15 @@ pub mod item;
 pub struct BTreeNode<Key, Value> {
     items: Vec<BTreeNodeItem<Key, Value>>,
     internal: bool,
+    parent: Option<Weak<RefCell<BTreeNode<Key, Value>>>>,
 }
 
 impl<Key, Value> BTreeNode<Key, Value> {
-    pub fn empty(internal: bool) -> Self {
+    pub fn empty(internal: bool, parent: Option<Weak<RefCell<BTreeNode<Key, Value>>>>) -> Self {
         Self {
             items: Vec::new(),
             internal,
+            parent,
         }
     }
 

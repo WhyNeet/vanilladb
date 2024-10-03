@@ -1,4 +1,7 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::RefCell,
+    rc::{Rc, Weak},
+};
 
 use crate::node::{item::BTreeNodeItem, BTreeNode};
 
@@ -16,7 +19,7 @@ where
     pub fn new(max_degree: usize) -> Self {
         Self {
             max_degree,
-            root: Rc::new(RefCell::new(BTreeNode::empty(false))),
+            root: Rc::new(RefCell::new(BTreeNode::empty(false, None))),
         }
     }
 
@@ -35,8 +38,8 @@ where
 
     fn _insert(&self, root: Rc<RefCell<BTreeNode<Key, Value>>>, kv: (Key, Value)) {
         if root.borrow().is_internal() {
-            let mut root = root.borrow_mut();
-            let ptr = root
+            let mut root_mut = root.borrow_mut();
+            let ptr = root_mut
                 .items()
                 .iter()
                 .map(|item| item.as_pointer())
@@ -47,14 +50,17 @@ where
                 self._insert(Rc::clone(ptr), kv);
             } else {
                 // create a new leaf node if no item is greater than key
-                let leaf = Rc::new(RefCell::new(BTreeNode::<Key, Value>::empty(false)));
-                let idx = root
+                let leaf = Rc::new(RefCell::new(BTreeNode::<Key, Value>::empty(
+                    false,
+                    Some(Rc::downgrade(&root)),
+                )));
+                let idx = root_mut
                     .items()
                     .iter()
                     .map(|item| item.as_pointer())
                     .position(|(k, _ptr)| k.ge(&kv.0))
-                    .unwrap_or(root.items().len());
-                root.insert(BTreeNodeItem::Pointer(kv.0, leaf), idx);
+                    .unwrap_or(root_mut.items().len());
+                root_mut.insert(BTreeNodeItem::Pointer(kv.0, leaf), idx);
             }
         } else {
             // if the node is a leaf node
