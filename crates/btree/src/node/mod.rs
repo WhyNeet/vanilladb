@@ -48,6 +48,10 @@ impl<Key: Clone, Value> BTreeNode<Key, Value> {
         self.items.push(item);
     }
 
+    pub fn pop(&mut self) -> Option<BTreeNodeItem<Key, Value>> {
+        self.items.pop()
+    }
+
     pub fn insert(&mut self, item: BTreeNodeItem<Key, Value>, idx: usize) {
         if !item.is_pointer() {
             self.non_ptr_items += 1

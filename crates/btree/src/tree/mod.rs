@@ -1,17 +1,21 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::RefCell,
+    rc::{Rc, Weak},
+};
 
 use crate::node::{item::BTreeNodeItem, BTreeNode};
 
 /// B+ Tree
 #[derive(Debug)]
-pub struct BTree<Key: std::cmp::PartialOrd + Clone, Value> {
+pub struct BTree<Key: std::cmp::PartialOrd + Clone + std::fmt::Debug, Value: std::fmt::Debug> {
     max_degree: usize,
     root: Rc<RefCell<BTreeNode<Key, Value>>>,
 }
 
 impl<Key, Value> BTree<Key, Value>
 where
-    Key: std::cmp::PartialOrd + Clone,
+    Key: std::cmp::PartialOrd + Clone + std::fmt::Debug,
+    Value: std::fmt::Debug,
 {
     pub fn new(max_degree: usize) -> Self {
         Self {
@@ -27,7 +31,8 @@ where
 
 impl<Key, Value> BTree<Key, Value>
 where
-    Key: std::cmp::PartialOrd + Clone,
+    Key: std::cmp::PartialOrd + Clone + std::fmt::Debug,
+    Value: std::fmt::Debug,
 {
     pub fn insert(&mut self, kv: (Key, Value)) {
         self._insert(Rc::clone(&self.root), (kv.0, Rc::new(kv.1)));
@@ -43,11 +48,13 @@ where
                 .filter(|(_, k)| k.is_key())
                 .rev()
                 .map(|(idx, k)| (idx, k.as_key()))
-                .find(|(_idx, key)| (*key).ge(&kv.0))
+                .find(|(_idx, key)| kv.0.ge(key))
                 .map(|(idx, _)| idx + 1)
                 .unwrap_or(0);
 
-            let ptr = Rc::clone(root.borrow().items()[idx + 1].as_pointer());
+            let ptr = Rc::clone(root_mut.items()[idx].as_pointer());
+
+            drop(root_mut);
 
             self._insert(ptr, kv);
         } else {
@@ -83,7 +90,34 @@ where
         let mid = node.items().len() >> 1;
         let (left, right) = node.items().split_at(mid);
 
-        if node.parent().is_none() {
+        let middle_key = if right[0].is_pointer() {
+            right[1].as_key()
+        } else if right[0].is_pair() {
+            right[0].as_pair().0
+        } else {
+            right[0].as_key()
+        }
+        .clone();
+        let middle = BTreeNodeItem::Key(middle_key);
+
+        if let Some(parent) = node.parent() {
+            let parent = Weak::upgrade(&parent).unwrap();
+
+            let left = Rc::new(RefCell::new(BTreeNode::from_items(
+                left,
+                Some(Rc::downgrade(&parent)),
+            )));
+            let right = Rc::new(RefCell::new(BTreeNode::from_items(
+                right,
+                Some(Rc::downgrade(&parent)),
+            )));
+
+            let mut parent = parent.borrow_mut();
+            parent.pop();
+            parent.append(BTreeNodeItem::Pointer(left));
+            parent.append(middle);
+            parent.append(BTreeNodeItem::Pointer(right));
+        } else {
             // Edge case: the node is root
             let new_root = Rc::new(RefCell::new(BTreeNode::empty(true, None)));
             let left = Rc::new(RefCell::new(BTreeNode::from_items(
@@ -91,16 +125,6 @@ where
                 Some(Rc::downgrade(&new_root)),
             )));
             new_root.borrow_mut().append(BTreeNodeItem::Pointer(left));
-            let middle = BTreeNodeItem::Key(
-                if right[0].is_pointer() {
-                    right[1].as_key()
-                } else if right[0].is_pair() {
-                    right[0].as_pair().0
-                } else {
-                    right[0].as_key()
-                }
-                .clone(),
-            );
             new_root.borrow_mut().append(middle);
             let right = Rc::new(RefCell::new(BTreeNode::from_items(
                 right,

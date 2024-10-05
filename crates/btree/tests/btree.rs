@@ -8,6 +8,8 @@ pub fn insertion() {
     btree.insert((1, 2));
     btree.insert((3, 4));
     btree.insert((2, 3));
+    btree.insert((7, 8));
+    btree.insert((5, 6));
 
     println!("{btree:?}");
 }
