@@ -11,5 +11,10 @@ pub fn insertion() {
     btree.insert((7, 8));
     btree.insert((5, 6));
 
+    btree.insert((6, 7));
+    btree.insert((8, 9));
+    btree.insert((9, 10));
+    btree.insert((10, 11));
+
     println!("{btree:?}");
 }
