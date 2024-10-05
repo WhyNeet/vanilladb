@@ -38,30 +38,21 @@ where
 
     fn _insert(&self, root: Rc<RefCell<BTreeNode<Key, Value>>>, kv: (Key, Value)) {
         if root.borrow().is_internal() {
-            let mut root_mut = root.borrow_mut();
-            let ptr = root_mut
+            let root_mut = root.borrow_mut();
+            let idx = root_mut
                 .items()
                 .iter()
-                .map(|item| item.as_pointer())
-                .find(|&(k, _v)| k.ge(&kv.0));
+                .enumerate()
+                .filter(|(_, k)| k.is_key())
+                .rev()
+                .map(|(idx, k)| (idx, k.as_key()))
+                .find(|(_idx, key)| (*key).ge(&kv.0))
+                .map(|(idx, _)| idx + 1)
+                .unwrap_or(0);
 
-            if let Some((_k, ptr)) = ptr {
-                // if there is a pointer to the right
-                self._insert(Rc::clone(ptr), kv);
-            } else {
-                // create a new leaf node if no item is greater than key
-                let leaf = Rc::new(RefCell::new(BTreeNode::<Key, Value>::empty(
-                    false,
-                    Some(Rc::downgrade(&root)),
-                )));
-                let idx = root_mut
-                    .items()
-                    .iter()
-                    .map(|item| item.as_pointer())
-                    .position(|(k, _ptr)| k.ge(&kv.0))
-                    .unwrap_or(root_mut.items().len());
-                root_mut.insert(BTreeNodeItem::Pointer(kv.0, leaf), idx);
-            }
+            let ptr = Rc::clone(root.borrow().items()[idx + 1].as_pointer());
+
+            self._insert(ptr, kv);
         } else {
             // if the node is a leaf node
             // insert the new KV pair before the first larger key
@@ -76,6 +67,18 @@ where
                 .unwrap_or(root.borrow().items().len());
             root.borrow_mut()
                 .insert(BTreeNodeItem::Pair(kv.0, kv.1), idx);
+
+            self.balance(root);
         }
+    }
+
+    fn balance(&self, node: Rc<RefCell<BTreeNode<Key, Value>>>) {
+        let node = node.borrow();
+        if node.items().len() < self.max_degree {
+            return;
+        }
+
+        // let mid = node.items().len() >> 1;
+        // let (left, right) = node.items().split_at(mid);
     }
 }

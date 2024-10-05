@@ -35,4 +35,8 @@ impl<Key, Value> BTreeNode<Key, Value> {
     pub fn is_internal(&self) -> bool {
         self.internal
     }
+
+    pub fn parent(&self) -> Option<Weak<RefCell<BTreeNode<Key, Value>>>> {
+        self.parent.as_ref().map(|node| Weak::clone(node))
+    }
 }
