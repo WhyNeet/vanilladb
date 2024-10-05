@@ -2,7 +2,7 @@ use btree::tree::BTree;
 
 #[test]
 pub fn insertion() {
-    let btree = BTree::<u32, u32>::new(4);
+    let mut btree = BTree::<u32, u32>::new(4);
 
     btree.insert((0, 1));
     btree.insert((1, 2));

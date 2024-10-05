@@ -3,14 +3,14 @@ use std::{cell::RefCell, rc::Rc};
 use super::BTreeNode;
 
 #[derive(Debug)]
-pub enum BTreeNodeItem<Key, Value> {
+pub enum BTreeNodeItem<Key: Clone, Value> {
     Key(Key),
     Pointer(Rc<RefCell<BTreeNode<Key, Value>>>),
-    Pair(Key, Value),
+    Pair(Key, Rc<Value>),
 }
 
-impl<Key, Value> BTreeNodeItem<Key, Value> {
-    pub fn as_pair(&self) -> (&Key, &Value) {
+impl<Key: Clone, Value> BTreeNodeItem<Key, Value> {
+    pub fn as_pair(&self) -> (&Key, &Rc<Value>) {
         match self {
             BTreeNodeItem::Pair(k, v) => (k, v),
             _ => unreachable!(),
@@ -49,6 +49,14 @@ impl<Key, Value> BTreeNodeItem<Key, Value> {
         match self {
             BTreeNodeItem::Pointer(_) => true,
             _ => false,
+        }
+    }
+
+    pub fn cloned(&self) -> Self {
+        match self {
+            Self::Key(k) => Self::Key(k.clone()),
+            Self::Pair(k, v) => Self::Pair(k.clone(), Rc::clone(v)),
+            Self::Pointer(ptr) => Self::Pointer(Rc::clone(ptr)),
         }
     }
 }
