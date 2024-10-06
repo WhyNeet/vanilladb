@@ -16,5 +16,5 @@ pub fn insertion() {
     btree.insert((9, 10));
     btree.insert((10, 11));
 
-    println!("{btree:?}");
+    println!("{btree:#?}");
 }
