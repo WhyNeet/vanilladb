@@ -79,16 +79,16 @@ where
     fn balance(&mut self, node: Rc<RefCell<BTreeNode<Key, Value>>>) {
         let node = node.borrow();
 
-        if node.is_internal() {
-            return;
-        }
-
-        if node.items().len() < self.max_degree {
+        if node.is_internal() && node.non_ptr_len() < self.max_degree
+            || node.items().len() < self.max_degree
+        {
             return;
         }
 
         let mid = node.items().len() >> 1;
-        let (left, right) = node.items().split_at(mid);
+        let (left, right) = node
+            .items()
+            .split_at(if node.is_internal() { mid + 1 } else { mid });
 
         let middle_key = if right[0].is_pointer() {
             right[1].as_key()
@@ -112,11 +112,15 @@ where
                 Some(Rc::downgrade(&parent)),
             )));
 
-            let mut parent = parent.borrow_mut();
-            parent.pop();
-            parent.append(BTreeNodeItem::Pointer(left));
-            parent.append(middle);
-            parent.append(BTreeNodeItem::Pointer(right));
+            let mut parent_mut = parent.borrow_mut();
+            parent_mut.pop();
+            parent_mut.append(BTreeNodeItem::Pointer(left));
+            parent_mut.append(middle);
+            parent_mut.append(BTreeNodeItem::Pointer(right));
+
+            drop(parent_mut);
+
+            self.balance(parent);
         } else {
             // Edge case: the node is root
             let new_root = Rc::new(RefCell::new(BTreeNode::empty(true, None)));
