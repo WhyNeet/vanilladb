@@ -2,7 +2,7 @@ use btree::tree::BTree;
 
 #[test]
 pub fn insertion() {
-    let mut btree = BTree::<u32, u32>::new(4);
+    let mut btree = BTree::<u32, u32>::new(4, false);
 
     btree.insert((0, 1));
     btree.insert((1, 2));
@@ -16,5 +16,7 @@ pub fn insertion() {
     btree.insert((9, 10));
     btree.insert((10, 11));
 
-    println!("{btree:#?}");
+    btree.insert((3, 5));
+
+    println!("{btree:?}");
 }
