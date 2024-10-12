@@ -159,4 +159,46 @@ where
             self.root = new_root;
         }
     }
+
+    pub fn get(&self, key: &Key) -> Option<Box<[Rc<Value>]>> {
+        self._get(key, Rc::clone(&self.root))
+    }
+
+    fn _get(
+        &self,
+        key: &Key,
+        root: Rc<RefCell<BTreeNode<Key, Value>>>,
+    ) -> Option<Box<[Rc<Value>]>> {
+        if !root.borrow().is_internal() {
+            return root
+                .borrow()
+                .items()
+                .iter()
+                .map(|item| item.as_pair())
+                .find(|item| item.0.eq(key))
+                .map(|(_, v)| v.into_iter().map(|ptr| Rc::clone(ptr)).collect());
+        }
+
+        let idx = root
+            .borrow()
+            .items()
+            .iter()
+            .enumerate()
+            .filter(|(_idx, item)| item.is_key())
+            .map(|(idx, item)| (idx, item.as_key()))
+            .find(|(_idx, k)| (*k).gt(key))
+            .map(|(idx, _k)| idx)
+            .unwrap_or(root.borrow().items().len())
+            - 1;
+
+        let ptr = root
+            .borrow()
+            .items()
+            .get(idx)
+            .map(|item| item.as_pointer())
+            .map(Rc::clone)
+            .unwrap();
+
+        self._get(key, ptr)
+    }
 }
