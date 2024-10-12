@@ -59,6 +59,32 @@ impl<Key: Clone, Value> BTreeNode<Key, Value> {
         self.items.splice(idx..idx, [item]);
     }
 
+    pub fn replace(
+        &mut self,
+        item: BTreeNodeItem<Key, Value>,
+        idx: usize,
+    ) -> Option<BTreeNodeItem<Key, Value>> {
+        if !item.is_pointer() {
+            self.non_ptr_items += 1
+        }
+        if self.items.get(idx).is_none() {
+            return None;
+        }
+        if self.items.get(idx).unwrap().is_pointer() {
+            self.non_ptr_items -= 1
+        }
+
+        Some(std::mem::replace(&mut self.items[idx], item))
+    }
+
+    pub fn get(&self, idx: usize) -> Option<&BTreeNodeItem<Key, Value>> {
+        self.items.get(idx)
+    }
+
+    pub fn last(&self) -> Option<&BTreeNodeItem<Key, Value>> {
+        self.items.last()
+    }
+
     pub fn items(&self) -> &[BTreeNodeItem<Key, Value>] {
         &self.items
     }

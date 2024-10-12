@@ -7,20 +7,25 @@ use crate::node::{item::BTreeNodeItem, BTreeNode};
 
 /// B+ Tree
 #[derive(Debug)]
-pub struct BTree<Key: std::cmp::PartialOrd + Clone + std::fmt::Debug, Value: std::fmt::Debug> {
+pub struct BTree<
+    Key: std::cmp::PartialOrd + Clone + std::fmt::Debug,
+    Value: std::cmp::PartialEq + std::fmt::Debug,
+> {
     max_degree: usize,
     root: Rc<RefCell<BTreeNode<Key, Value>>>,
+    unique: bool,
 }
 
 impl<Key, Value> BTree<Key, Value>
 where
     Key: std::cmp::PartialOrd + Clone + std::fmt::Debug,
-    Value: std::fmt::Debug,
+    Value: std::cmp::PartialEq + std::fmt::Debug,
 {
-    pub fn new(max_degree: usize) -> Self {
+    pub fn new(max_degree: usize, unique: bool) -> Self {
         Self {
             max_degree,
             root: Rc::new(RefCell::new(BTreeNode::empty(false, None))),
+            unique,
         }
     }
 
@@ -32,13 +37,13 @@ where
 impl<Key, Value> BTree<Key, Value>
 where
     Key: std::cmp::PartialOrd + Clone + std::fmt::Debug,
-    Value: std::fmt::Debug,
+    Value: std::cmp::PartialEq + std::fmt::Debug,
 {
-    pub fn insert(&mut self, kv: (Key, Value)) {
-        self._insert(Rc::clone(&self.root), (kv.0, Rc::new(kv.1)));
+    pub fn insert(&mut self, kv: (Key, Value)) -> bool {
+        self._insert(Rc::clone(&self.root), (kv.0, Rc::new(kv.1)))
     }
 
-    fn _insert(&mut self, root: Rc<RefCell<BTreeNode<Key, Value>>>, kv: (Key, Rc<Value>)) {
+    fn _insert(&mut self, root: Rc<RefCell<BTreeNode<Key, Value>>>, kv: (Key, Rc<Value>)) -> bool {
         if root.borrow().is_internal() {
             let root_mut = root.borrow_mut();
             let idx = root_mut
@@ -56,7 +61,7 @@ where
 
             drop(root_mut);
 
-            self._insert(ptr, kv);
+            self._insert(ptr, kv)
         } else {
             // if the node is a leaf node
             // insert the new KV pair before the first larger key
@@ -67,12 +72,27 @@ where
                 .iter()
                 .map(|item| item.as_pair())
                 .position(|(k, _v)| k.ge(&kv.0))
-                .map(|pos| pos)
                 .unwrap_or(root.borrow().items().len());
-            root.borrow_mut()
-                .insert(BTreeNodeItem::Pair(kv.0, kv.1), idx);
+            let rt = root.borrow();
+            let item = rt.get(idx).map(|item| item.cloned());
+            drop(rt);
+
+            if item.is_some() && self.unique && item.as_ref().unwrap().as_pair().1[0].eq(&kv.1) {
+                return false;
+            }
+
+            if item.is_some() && item.as_ref().unwrap().as_pair().0.eq(&kv.0) {
+                let mut item = item.unwrap();
+                item.push_value(kv.1);
+                root.borrow_mut().replace(item, idx);
+            } else {
+                root.borrow_mut()
+                    .insert(BTreeNodeItem::Pair(kv.0, vec![kv.1]), idx);
+            }
 
             self.balance(root);
+
+            true
         }
     }
 
