@@ -1,10 +1,9 @@
-use std::{borrow::Borrow, cell::RefCell, error::Error, io::Write, rc::Rc};
+use std::{cell::RefCell, error::Error, io::Write, path::PathBuf, rc::Rc};
+
+use llio::io::direct::DirectFileIo;
 
 use crate::{
-    cursor::cursor::Cursor,
-    document::document::Document,
-    io::{comet_io::CometIo, io_config::IoConfig},
-    pager::Pager,
+    cursor::cursor::Cursor, document::document::Document, io::io_config::IoConfig, pager::Pager,
 };
 
 pub struct Collection {
@@ -14,7 +13,8 @@ pub struct Collection {
 
 impl Collection {
     pub fn new(db: &str, name: String, config: IoConfig) -> Result<Self, Box<dyn Error>> {
-        let io = CometIo::new(db, &name, config)?;
+        let collection_file_path = PathBuf::from(&config.data_dir()[..]).join(db).join(&name);
+        let io = DirectFileIo::new(collection_file_path.to_str().unwrap())?;
         let pager = Pager::new(io);
 
         Ok(Collection {

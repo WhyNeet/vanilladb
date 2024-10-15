@@ -1,6 +1,8 @@
 use std::{cell::RefCell, error::Error, io, ptr, rc::Rc};
 
-use crate::{document::Document, page::PAGE_SIZE, pager::Pager, util};
+use llio::page::PAGE_SIZE;
+
+use crate::{document::Document, pager::Pager, util};
 
 pub struct Cursor {
     page: u64,
