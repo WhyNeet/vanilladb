@@ -9,14 +9,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
+name = "bitflags"
+version = "2.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b048fb63fd8b5923fc5aa7b340d8e156aec7ec02f0c78fa8a6ddc2613f6f71de"
+
+[[package]]
 name = "btree"
 version = "0.1.0"
+
+[[package]]
+name = "cfg-if"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "comet"
 version = "0.1.0"
 dependencies = [
- "io-uring",
+ "io-uring 0.6.4",
  "libc",
  "trail",
 ]
@@ -27,19 +39,34 @@ version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "595a0399f411a508feb2ec1e970a4a30c249351e30208960d58298de8660b0e5"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
+ "libc",
+]
+
+[[package]]
+name = "io-uring"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e81902f02e8d5323264098a3db443ca31f179a8d38d9cd9325f19cea31b9b02"
+dependencies = [
+ "bitflags 2.6.0",
+ "cfg-if",
  "libc",
 ]
 
 [[package]]
 name = "libc"
-version = "0.2.158"
+version = "0.2.159"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8adc4bb1803a324070e64a98ae98f38934d91957a99cfb3a43dcbc01bc56439"
+checksum = "561d97a539a36e26a9a5fad1ea11a3039a67714694aaa379433e580854bc3dc5"
 
 [[package]]
 name = "llio"
 version = "0.1.0"
+dependencies = [
+ "io-uring 0.7.0",
+ "libc",
+]
 
 [[package]]
 name = "testbed"
