@@ -2,9 +2,9 @@ use std::{cell::RefCell, error::Error, io::Write, path::PathBuf, rc::Rc};
 
 use llio::io::direct::DirectFileIo;
 
-use crate::{
-    cursor::cursor::Cursor, document::document::Document, io::io_config::IoConfig, pager::Pager,
-};
+use crate::{cursor::cursor::Cursor, document::document::Document, io::io_config::IoConfig};
+
+use llio::pager::Pager;
 
 pub struct Collection {
     pager: Rc<RefCell<Pager>>,

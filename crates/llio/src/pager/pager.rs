@@ -1,6 +1,6 @@
 use std::io::{self, Read, Write};
 
-use llio::io::direct::DirectFileIo;
+use crate::io::direct::DirectFileIo;
 
 /// Pager is an abstraction over hardware pages on the drive
 pub struct Pager {
