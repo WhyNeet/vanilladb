@@ -22,7 +22,7 @@ pub struct DirectFileIo {
 
 impl DirectFileIo {
     pub fn new(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let (fd, size) = DirectFileIo::get_file_data(PathBuf::from(path));
+        let (fd, size) = DirectFileIo::get_file_data(path);
         let total_pages = size / PAGE_SIZE as u64;
 
         Ok(Self {
@@ -33,8 +33,8 @@ impl DirectFileIo {
         })
     }
 
-    fn get_file_data(path: PathBuf) -> (RawFd, u64) {
-        let path = CString::new(path.to_str().unwrap()).unwrap();
+    fn get_file_data(path: &str) -> (RawFd, u64) {
+        let path = CString::new(path).unwrap();
         let fd = unsafe {
             open(
                 path.as_ptr(),
