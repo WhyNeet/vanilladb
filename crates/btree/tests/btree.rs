@@ -1,4 +1,4 @@
-use btree::tree::BTree;
+use btree::tree::mem::BTree;
 
 #[test]
 pub fn insertion() {

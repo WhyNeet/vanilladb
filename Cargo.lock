@@ -13,6 +13,7 @@ name = "btree"
 version = "0.1.0"
 dependencies = [
  "llio",
+ "trail",
 ]
 
 [[package]]
@@ -52,6 +53,7 @@ version = "0.1.0"
 dependencies = [
  "io-uring",
  "libc",
+ "trail",
 ]
 
 [[package]]
