@@ -2,6 +2,7 @@ use std::rc::Rc;
 use std::{mem, ptr};
 
 use llio::util::record_id::RecordId;
+use trail::deserialize::Deserialize;
 use trail::serialize::Serialize;
 
 #[derive(Debug)]
@@ -84,9 +85,7 @@ where
             + match self {
                 Self::Key(key) => key.size(),
                 // key length + \0 + vector size bytes + vector size
-                Self::Pair(key, value) => {
-                    key.size() + 1 + mem::size_of::<u32>() as u32 + value.size()
-                }
+                Self::Pair(key, value) => key.size() + 1 + value.size(),
                 Self::Pointer(rci) => rci.size(),
             }
     }
@@ -151,5 +150,82 @@ where
         };
 
         Ok(buffer)
+    }
+}
+
+impl<Key, Value> Deserialize for FileBTreeNodeItem<Key, Value>
+where
+    Key: Clone + Deserialize + Serialize,
+    Value: Deserialize + Serialize,
+{
+    fn deserialize(from: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
+        let item_type = from[0];
+
+        Ok(match item_type {
+            0 => {
+                let key_size = u32::deserialize(
+                    (&from[mem::size_of::<u8>()..(mem::size_of::<u8>() + mem::size_of::<u32>())])
+                        .try_into()?,
+                )?;
+
+                FileBTreeNodeItem::Key(Key::deserialize(
+                    &from[(mem::size_of::<u8>() + mem::size_of::<u32>())
+                        ..(mem::size_of::<u8>() + mem::size_of::<u32>() + key_size as usize)],
+                )?)
+            }
+            1 => {
+                let pair_size = u32::deserialize(
+                    (&from[mem::size_of::<u8>()..(mem::size_of::<u8>() + mem::size_of::<u32>())])
+                        .try_into()?,
+                )?;
+
+                // seek until null terminator
+                let key_size = from
+                    .iter()
+                    .skip(mem::size_of::<u8>() + mem::size_of::<u32>())
+                    .take_while(|&byte| *byte != 0)
+                    .count();
+
+                let key = Key::deserialize(
+                    &from[(mem::size_of::<u8>() + mem::size_of::<u32>() * 2)
+                        ..(mem::size_of::<u8>() + mem::size_of::<u32>() * 2 + key_size as usize)],
+                )?;
+
+                let value_size = u32::deserialize(
+                    (&from[(mem::size_of::<u8>() + mem::size_of::<u32>() * 2 + key_size as usize)
+                        ..(mem::size_of::<u8>()
+                            + mem::size_of::<u32>() * 2
+                            + key_size as usize
+                            + mem::size_of::<u32>())])
+                        .try_into()?,
+                )?;
+
+                let value = Vec::<Value>::deserialize(
+                    &from[(mem::size_of::<u8>()
+                        + mem::size_of::<u32>() * 2
+                        + key_size as usize
+                        + mem::size_of::<u32>())
+                        ..(mem::size_of::<u8>()
+                            + mem::size_of::<u32>() * 2
+                            + key_size as usize
+                            + mem::size_of::<u32>()
+                            + value_size as usize)],
+                )?;
+
+                FileBTreeNodeItem::Pair(key, value.into_iter().map(|item| Rc::new(item)).collect())
+            }
+            2 => {
+                let id_size = u32::deserialize(
+                    (&from[mem::size_of::<u8>()..(mem::size_of::<u8>() + mem::size_of::<u32>())])
+                        .try_into()?,
+                )?;
+
+                FileBTreeNodeItem::Pointer(RecordId::deserialize(
+                    &from[(mem::size_of::<u8>() + mem::size_of::<u32>())
+                        ..(mem::size_of::<u8>() + mem::size_of::<u32>() + id_size as usize)],
+                )?)
+            }
+            _ => unreachable!(),
+        })
     }
 }
