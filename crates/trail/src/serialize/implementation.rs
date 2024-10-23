@@ -1,6 +1,6 @@
 use std::{collections::HashMap, mem, ptr};
 
-use crate::field::Field;
+use crate::{deserialize::Deserialize, field::Field};
 
 use super::macro_impl::serializable_number;
 
@@ -128,5 +128,66 @@ impl Serialize for HashMap<String, Field> {
                     + mem::size_of::<u32>() as u32
                     + v.size()
             })
+    }
+}
+
+impl Serialize for Vec<Field> {
+    fn size(&self) -> u32 {
+        mem::size_of::<u32>() as u32
+            + self
+                .iter()
+                .map(|field| {
+                    mem::size_of::<u8>() as u32 + mem::size_of::<u32>() as u32 + field.size()
+                })
+                .sum::<u32>()
+    }
+
+    fn serialize(&self) -> Result<Box<[u8]>, Box<dyn Error>> {
+        let size = self.size();
+        let mut buffer = vec![0u8; size as usize].into_boxed_slice();
+
+        unsafe {
+            ptr::copy_nonoverlapping(
+                size.to_le_bytes().as_ptr(),
+                buffer.as_mut_ptr(),
+                mem::size_of::<u32>(),
+            );
+        }
+
+        let mut offset = 0;
+
+        for field in self.iter() {
+            let len = mem::size_of::<u8>() as u32 + mem::size_of::<u32>() as u32 + field.size();
+            unsafe {
+                ptr::copy_nonoverlapping(
+                    field.serialize()?.as_ptr(),
+                    (&mut buffer[(mem::size_of::<u32>() + offset as usize)..]).as_mut_ptr(),
+                    len as usize,
+                );
+            }
+            offset += len;
+        }
+
+        Ok(buffer)
+    }
+}
+
+impl Deserialize for Vec<Field> {
+    fn deserialize(from: &[u8]) -> Result<Self, Box<dyn Error>> {
+        let size = u32::from_le_bytes((&from[..4]).try_into()?);
+        let mut vec = Vec::new();
+
+        let mut offset = 0;
+
+        while size - offset > 4 {
+            let field = Field::deserialize(&from[(4 + offset as usize)..])?;
+            let size = field.size();
+
+            vec.push(field);
+
+            offset += mem::size_of::<u8>() as u32 + mem::size_of::<u32>() as u32 + size;
+        }
+
+        Ok(vec)
     }
 }
