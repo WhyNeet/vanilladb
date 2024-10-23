@@ -1,6 +1,6 @@
 pub mod trail;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RecordId {
     path: String,
     offset: u64,
