@@ -29,7 +29,7 @@ pub fn vec_deserialization_works() {
         4, 4, 0, 0, 0, 10, 0, 0, 0,
     ];
 
-    let vec = Vec::deserialize(&buffer);
+    let vec = Vec::<Field>::deserialize(&buffer);
     assert!(vec.is_ok());
 
     let vec = vec.unwrap();
