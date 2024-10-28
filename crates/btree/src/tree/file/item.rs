@@ -97,12 +97,19 @@ where
         match self {
             Self::Key(key) => {
                 buffer[0] = 0;
+                unsafe {
+                    ptr::copy_nonoverlapping(
+                        key.size().to_le_bytes().as_ptr(),
+                        buffer.as_mut_ptr().add(1),
+                        mem::size_of::<u32>(),
+                    );
+                }
 
                 unsafe {
                     ptr::copy_nonoverlapping(
                         key.serialize()?.as_ptr(),
-                        buffer.as_mut_ptr().add(1),
-                        size as usize,
+                        buffer.as_mut_ptr().add(1).add(mem::size_of::<u32>()),
+                        size as usize - 1,
                     );
                 };
             }
