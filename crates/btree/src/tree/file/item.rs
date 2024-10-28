@@ -148,8 +148,16 @@ where
 
                 unsafe {
                     ptr::copy_nonoverlapping(
-                        ptr.serialize()?.as_ptr(),
+                        ptr.size().to_le_bytes().as_ptr(),
                         buffer.as_mut_ptr().add(1),
+                        mem::size_of::<u32>(),
+                    );
+                }
+
+                unsafe {
+                    ptr::copy_nonoverlapping(
+                        ptr.serialize()?.as_ptr(),
+                        buffer.as_mut_ptr().add(1).add(mem::size_of::<u32>()),
                         ptr.size() as usize,
                     );
                 };
