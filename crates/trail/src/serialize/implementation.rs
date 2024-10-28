@@ -136,26 +136,14 @@ where
     Value: Serialize,
 {
     fn size(&self) -> u32 {
-        mem::size_of::<u32>() as u32
-            + self
-                .iter()
-                .map(|field| {
-                    mem::size_of::<u8>() as u32 + mem::size_of::<u32>() as u32 + field.size()
-                })
-                .sum::<u32>()
+        self.iter()
+            .map(|field| mem::size_of::<u8>() as u32 + mem::size_of::<u32>() as u32 + field.size())
+            .sum::<u32>()
     }
 
     fn serialize(&self) -> Result<Box<[u8]>, Box<dyn Error>> {
         let size = self.size();
         let mut buffer = vec![0u8; size as usize].into_boxed_slice();
-
-        unsafe {
-            ptr::copy_nonoverlapping(
-                size.to_le_bytes().as_ptr(),
-                buffer.as_mut_ptr(),
-                mem::size_of::<u32>(),
-            );
-        }
 
         let mut offset = 0;
 
@@ -164,7 +152,7 @@ where
             unsafe {
                 ptr::copy_nonoverlapping(
                     field.serialize()?.as_ptr(),
-                    (&mut buffer[(mem::size_of::<u32>() + offset as usize)..]).as_mut_ptr(),
+                    (&mut buffer[(offset as usize)..]).as_mut_ptr(),
                     len as usize,
                 );
             }
@@ -180,18 +168,17 @@ where
     Value: Deserialize + Serialize,
 {
     fn deserialize(from: &[u8]) -> Result<Self, Box<dyn Error>> {
-        let size = u32::from_le_bytes((&from[..4]).try_into()?);
         let mut vec = Vec::new();
 
         let mut offset = 0;
 
-        while size - offset > 4 {
-            let field = Value::deserialize(&from[(4 + offset as usize)..])?;
+        while from.len() - offset > 0 {
+            let field = Value::deserialize(&from[(offset as usize)..])?;
             let size = field.size();
 
             vec.push(field);
 
-            offset += mem::size_of::<u8>() as u32 + mem::size_of::<u32>() as u32 + size;
+            offset += mem::size_of::<u8>() + mem::size_of::<u32>() + size as usize;
         }
 
         Ok(vec)
@@ -216,14 +203,6 @@ where
         let size = self.size();
         let mut buffer = vec![0u8; size as usize].into_boxed_slice();
 
-        unsafe {
-            ptr::copy_nonoverlapping(
-                size.to_le_bytes().as_ptr(),
-                buffer.as_mut_ptr(),
-                mem::size_of::<u32>(),
-            );
-        }
-
         let mut offset = 0;
 
         for field in self.iter() {
@@ -231,7 +210,7 @@ where
             unsafe {
                 ptr::copy_nonoverlapping(
                     field.serialize()?.as_ptr(),
-                    (&mut buffer[(mem::size_of::<u32>() + offset as usize)..]).as_mut_ptr(),
+                    (&mut buffer[(offset as usize)..]).as_mut_ptr(),
                     len as usize,
                 );
             }
@@ -247,18 +226,17 @@ where
     Value: Deserialize + Serialize,
 {
     fn deserialize(from: &[u8]) -> Result<Self, Box<dyn Error>> {
-        let size = u32::from_le_bytes((&from[..4]).try_into()?);
         let mut vec = Vec::new();
 
         let mut offset = 0;
 
-        while size - offset > 4 {
-            let field = Value::deserialize(&from[(4 + offset as usize)..])?;
+        while from.len() - offset > 0 {
+            let field = Value::deserialize(&from[(offset as usize)..])?;
             let size = field.size();
 
             vec.push(Rc::new(field));
 
-            offset += mem::size_of::<u8>() as u32 + mem::size_of::<u32>() as u32 + size;
+            offset += mem::size_of::<u8>() + mem::size_of::<u32>() + size as usize;
         }
 
         Ok(vec)
