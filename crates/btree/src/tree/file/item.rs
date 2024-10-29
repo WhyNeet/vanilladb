@@ -3,17 +3,18 @@ use std::{mem, ptr};
 
 use llio::util::record_id::RecordId;
 use trail::deserialize::Deserialize;
+use trail::field::Field;
 use trail::serialize::Serialize;
 
 #[derive(Debug)]
-pub enum FileBTreeNodeItem<Key: Clone + Serialize, Value: Serialize> {
+pub enum FileBTreeNodeItem<Key: Clone + Serialize> {
     Key(Key),
-    Pair(Key, Vec<Rc<Value>>),
+    Pair(Key, Vec<Rc<Field>>),
     Pointer(RecordId),
 }
 
-impl<Key: Clone + Serialize, Value: Serialize> FileBTreeNodeItem<Key, Value> {
-    pub fn as_pair(&self) -> (&Key, &[Rc<Value>]) {
+impl<Key: Clone + Serialize> FileBTreeNodeItem<Key> {
+    pub fn as_pair(&self) -> (&Key, &[Rc<Field>]) {
         match self {
             FileBTreeNodeItem::Pair(k, v) => (k, v),
             _ => unreachable!(),
@@ -63,7 +64,7 @@ impl<Key: Clone + Serialize, Value: Serialize> FileBTreeNodeItem<Key, Value> {
         }
     }
 
-    pub fn push_value(&mut self, value: Rc<Value>) {
+    pub fn push_value(&mut self, value: Rc<Field>) {
         match self {
             Self::Pair(_k, v) => {
                 v.push(value);
@@ -73,10 +74,9 @@ impl<Key: Clone + Serialize, Value: Serialize> FileBTreeNodeItem<Key, Value> {
     }
 }
 
-impl<Key, Value> Serialize for FileBTreeNodeItem<Key, Value>
+impl<Key> Serialize for FileBTreeNodeItem<Key>
 where
     Key: Clone + Serialize,
-    Value: Serialize,
 {
     fn size(&self) -> u32 {
         // type + size + item
@@ -84,7 +84,7 @@ where
             + mem::size_of::<u32>() as u32
             + match self {
                 Self::Key(key) => key.size(),
-                // key length + \0 + vector size bytes + vector size
+                // key length + \0 + value size
                 Self::Pair(key, value) => key.size() + 1 + value.size(),
                 Self::Pointer(rci) => rci.size(),
             }
@@ -117,28 +117,38 @@ where
                 buffer[0] = 1;
 
                 let key_size = key.size();
-                unsafe {
-                    ptr::copy_nonoverlapping(
-                        key.serialize()?.as_ptr(),
-                        buffer.as_mut_ptr().add(1),
-                        key_size as usize,
-                    );
-                }
-
                 let value_size = value.size();
+
+                let total_length = key_size + 1 + value_size;
+
+                // write total pair size
                 unsafe {
                     ptr::copy_nonoverlapping(
-                        value_size.to_le_bytes().as_ptr(),
-                        (&mut buffer[(1 + key_size as usize + 1)..]).as_mut_ptr(),
+                        total_length.to_le_bytes().as_ptr(),
+                        buffer.as_mut_ptr().add(1),
                         mem::size_of::<u32>(),
                     );
                 }
 
+                // write key
+                unsafe {
+                    ptr::copy_nonoverlapping(
+                        key.serialize()?.as_ptr(),
+                        buffer.as_mut_ptr().add(1).add(mem::size_of::<u32>()),
+                        key_size as usize,
+                    );
+                }
+
+                // write value
                 unsafe {
                     ptr::copy_nonoverlapping(
                         value.serialize()?.as_ptr(),
-                        (&mut buffer[(1 + key_size as usize + 1 + mem::size_of::<u32>())..])
-                            .as_mut_ptr(),
+                        buffer
+                            .as_mut_ptr()
+                            .add(1)
+                            .add(mem::size_of::<u32>())
+                            .add(key_size as usize)
+                            .add(1),
                         value_size as usize,
                     );
                 }
@@ -168,10 +178,9 @@ where
     }
 }
 
-impl<Key, Value> Deserialize for FileBTreeNodeItem<Key, Value>
+impl<Key> Deserialize for FileBTreeNodeItem<Key>
 where
     Key: Clone + Deserialize + Serialize,
-    Value: Deserialize + Serialize,
 {
     fn deserialize(from: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
         let item_type = from[0];
@@ -201,30 +210,16 @@ where
                     .take_while(|&byte| *byte != 0)
                     .count();
 
+                println!("key size: {key_size}");
+
                 let key = Key::deserialize(
-                    &from[(mem::size_of::<u8>() + mem::size_of::<u32>() * 2)
-                        ..(mem::size_of::<u8>() + mem::size_of::<u32>() * 2 + key_size as usize)],
+                    &from[(mem::size_of::<u8>() + mem::size_of::<u32>())
+                        ..(mem::size_of::<u8>() + mem::size_of::<u32>() + key_size as usize)],
                 )?;
 
-                let value_size = u32::deserialize(
-                    (&from[(mem::size_of::<u8>() + mem::size_of::<u32>() * 2 + key_size as usize)
-                        ..(mem::size_of::<u8>()
-                            + mem::size_of::<u32>() * 2
-                            + key_size as usize
-                            + mem::size_of::<u32>())])
-                        .try_into()?,
-                )?;
-
-                let value = Vec::<Value>::deserialize(
-                    &from[(mem::size_of::<u8>()
-                        + mem::size_of::<u32>() * 2
-                        + key_size as usize
-                        + mem::size_of::<u32>())
-                        ..(mem::size_of::<u8>()
-                            + mem::size_of::<u32>() * 2
-                            + key_size as usize
-                            + mem::size_of::<u32>()
-                            + value_size as usize)],
+                let value = Vec::<Field>::deserialize(
+                    &from[(mem::size_of::<u8>() + mem::size_of::<u32>() + key_size as usize + 1)
+                        ..(pair_size as usize + mem::size_of::<u8>() + mem::size_of::<u32>())],
                 )?;
 
                 FileBTreeNodeItem::Pair(key, value.into_iter().map(|item| Rc::new(item)).collect())
