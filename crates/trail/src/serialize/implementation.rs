@@ -190,13 +190,9 @@ where
     Value: Serialize,
 {
     fn size(&self) -> u32 {
-        mem::size_of::<u32>() as u32
-            + self
-                .iter()
-                .map(|field| {
-                    mem::size_of::<u8>() as u32 + mem::size_of::<u32>() as u32 + field.size()
-                })
-                .sum::<u32>()
+        self.iter()
+            .map(|field| mem::size_of::<u8>() as u32 + mem::size_of::<u32>() as u32 + field.size())
+            .sum::<u32>()
     }
 
     fn serialize(&self) -> Result<Box<[u8]>, Box<dyn Error>> {
