@@ -1,8 +1,8 @@
-use std::rc::Rc;
+use std::{ptr, rc::Rc};
 
 use btree::tree::file::item::FileBTreeNodeItem;
 use llio::util::record_id::RecordId;
-use trail::{field::Field, serialize::Serialize};
+use trail::{deserialize::Deserialize, field::Field, serialize::Serialize};
 
 #[test]
 pub fn item_key_serialization_works() {
@@ -35,10 +35,10 @@ pub fn item_pair_serialization_works() {
     assert_eq!(
         &buffer[..],
         [
-            1, 21, 0, 0, 0, 99, 105, 116, 105, 101, 115, 0, 14, 0, 0, 0, 0, 2, 0, 0, 0, 78, 89, 0,
-            2, 0, 0, 0, 76, 65
+            1, 21, 0, 0, 0, 99, 105, 116, 105, 101, 115, 0, 0, 2, 0, 0, 0, 78, 89, 0, 2, 0, 0, 0,
+            76, 65
         ]
-    )
+    );
 }
 
 #[test]
@@ -57,4 +57,62 @@ pub fn item_pointer_serialization_works() {
             0, 0, 0, 0, 0, 0
         ]
     );
+}
+
+#[test]
+pub fn item_key_deserialization_works() {
+    let buffer = [0, 8, 0, 0, 0, 117, 115, 101, 114, 110, 97, 109, 101];
+    let item = FileBTreeNodeItem::<String>::deserialize(&buffer);
+    assert!(item.is_ok());
+
+    let item = item.unwrap();
+    assert!(item.is_key());
+    assert_eq!(item.as_key(), "username");
+}
+
+#[test]
+pub fn item_pair_deserialization_works() {
+    let buffer = [
+        1, 21, 0, 0, 0, 99, 105, 116, 105, 101, 115, 0, 0, 2, 0, 0, 0, 78, 89, 0, 2, 0, 0, 0, 76,
+        65,
+    ];
+    let item = FileBTreeNodeItem::<String>::deserialize(&buffer);
+    assert!(item.is_ok());
+
+    let item = item.unwrap();
+    assert!(item.is_pair());
+    assert_eq!(item.as_pair().0, "cities");
+    assert_eq!(
+        unsafe {
+            (Box::into_raw(ptr::read(item.as_pair().1[0].value() as *const Box<_>))
+                as *const String)
+                .as_ref()
+                .unwrap()
+        },
+        "NY"
+    );
+    assert_eq!(
+        unsafe {
+            (Box::into_raw(ptr::read(item.as_pair().1[1].value() as *const Box<_>))
+                as *const String)
+                .as_ref()
+                .unwrap()
+        },
+        "LA"
+    );
+}
+
+#[test]
+pub fn item_pointer_deserialization_works() {
+    let buffer = [
+        2, 22, 0, 0, 0, 12, 0, 47, 104, 101, 108, 108, 111, 47, 119, 111, 114, 108, 100, 0, 2, 0,
+        0, 0, 0, 0, 0,
+    ];
+    let item = FileBTreeNodeItem::<String>::deserialize(&buffer);
+    assert!(item.is_ok());
+
+    let item = item.unwrap();
+    assert!(item.is_pointer());
+    assert_eq!(item.as_pointer().path(), "/hello/world");
+    assert_eq!(item.as_pointer().offset(), 512);
 }
