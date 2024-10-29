@@ -131,10 +131,7 @@ impl Serialize for HashMap<String, Field> {
     }
 }
 
-impl<Value> Serialize for Vec<Value>
-where
-    Value: Serialize,
-{
+impl Serialize for Vec<Field> {
     fn size(&self) -> u32 {
         self.iter()
             .map(|field| mem::size_of::<u8>() as u32 + mem::size_of::<u32>() as u32 + field.size())
@@ -163,17 +160,14 @@ where
     }
 }
 
-impl<Value> Deserialize for Vec<Value>
-where
-    Value: Deserialize + Serialize,
-{
+impl Deserialize for Vec<Field> {
     fn deserialize(from: &[u8]) -> Result<Self, Box<dyn Error>> {
         let mut vec = Vec::new();
 
         let mut offset = 0;
 
         while from.len() - offset > 0 {
-            let field = Value::deserialize(&from[(offset as usize)..])?;
+            let field = Field::deserialize(&from[(offset as usize)..])?;
             let size = field.size();
 
             vec.push(field);
@@ -185,10 +179,7 @@ where
     }
 }
 
-impl<Value> Serialize for Vec<Rc<Value>>
-where
-    Value: Serialize,
-{
+impl Serialize for Vec<Rc<Field>> {
     fn size(&self) -> u32 {
         self.iter()
             .map(|field| mem::size_of::<u8>() as u32 + mem::size_of::<u32>() as u32 + field.size())
@@ -217,17 +208,14 @@ where
     }
 }
 
-impl<Value> Deserialize for Vec<Rc<Value>>
-where
-    Value: Deserialize + Serialize,
-{
+impl Deserialize for Vec<Rc<Field>> {
     fn deserialize(from: &[u8]) -> Result<Self, Box<dyn Error>> {
         let mut vec = Vec::new();
 
         let mut offset = 0;
 
         while from.len() - offset > 0 {
-            let field = Value::deserialize(&from[(offset as usize)..])?;
+            let field = Field::deserialize(&from[(offset as usize)..])?;
             let size = field.size();
 
             vec.push(Rc::new(field));
