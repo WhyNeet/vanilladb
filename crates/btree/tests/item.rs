@@ -35,8 +35,8 @@ pub fn item_pair_serialization_works() {
     assert_eq!(
         &buffer[..],
         [
-            1, 21, 0, 0, 0, 99, 105, 116, 105, 101, 115, 0, 0, 2, 0, 0, 0, 78, 89, 0, 2, 0, 0, 0,
-            76, 65
+            1, 24, 0, 0, 0, 6, 0, 0, 0, 99, 105, 116, 105, 101, 115, 0, 2, 0, 0, 0, 78, 89, 0, 2,
+            0, 0, 0, 76, 65
         ]
     );
 }
@@ -73,8 +73,8 @@ pub fn item_key_deserialization_works() {
 #[test]
 pub fn item_pair_deserialization_works() {
     let buffer = [
-        1, 21, 0, 0, 0, 99, 105, 116, 105, 101, 115, 0, 0, 2, 0, 0, 0, 78, 89, 0, 2, 0, 0, 0, 76,
-        65,
+        1, 24, 0, 0, 0, 6, 0, 0, 0, 99, 105, 116, 105, 101, 115, 0, 2, 0, 0, 0, 78, 89, 0, 2, 0, 0,
+        0, 76, 65,
     ];
     let item = FileBTreeNodeItem::<String>::deserialize(&buffer);
     assert!(item.is_ok());
