@@ -84,8 +84,8 @@ where
             + mem::size_of::<u32>() as u32
             + match self {
                 Self::Key(key) => key.size(),
-                // key length + \0 + value size
-                Self::Pair(key, value) => key.size() + 1 + value.size(),
+                // key size + key + value
+                Self::Pair(key, value) => mem::size_of::<u32>() as u32 + key.size() + value.size(),
                 Self::Pointer(rci) => rci.size(),
             }
     }
@@ -119,7 +119,7 @@ where
                 let key_size = key.size();
                 let value_size = value.size();
 
-                let total_length = key_size + 1 + value_size;
+                let total_length = mem::size_of::<u32>() as u32 + key_size + value_size;
 
                 // write total pair size
                 unsafe {
@@ -130,11 +130,24 @@ where
                     );
                 }
 
+                // write key size
+                unsafe {
+                    ptr::copy_nonoverlapping(
+                        key_size.to_le_bytes().as_ptr(),
+                        buffer.as_mut_ptr().add(1).add(mem::size_of::<u32>()),
+                        mem::size_of::<u32>(),
+                    );
+                }
+
                 // write key
                 unsafe {
                     ptr::copy_nonoverlapping(
                         key.serialize()?.as_ptr(),
-                        buffer.as_mut_ptr().add(1).add(mem::size_of::<u32>()),
+                        buffer
+                            .as_mut_ptr()
+                            .add(1)
+                            .add(mem::size_of::<u32>())
+                            .add(mem::size_of::<u32>()),
                         key_size as usize,
                     );
                 }
@@ -147,8 +160,8 @@ where
                             .as_mut_ptr()
                             .add(1)
                             .add(mem::size_of::<u32>())
-                            .add(key_size as usize)
-                            .add(1),
+                            .add(mem::size_of::<u32>())
+                            .add(key_size as usize),
                         value_size as usize,
                     );
                 }
@@ -203,22 +216,24 @@ where
                         .try_into()?,
                 )?;
 
-                // seek until null terminator
-                let key_size = from
-                    .iter()
-                    .skip(mem::size_of::<u8>() + mem::size_of::<u32>())
-                    .take_while(|&byte| *byte != 0)
-                    .count();
-
-                println!("key size: {key_size}");
+                let key_size = u32::deserialize(
+                    &from[(mem::size_of::<u8>() + mem::size_of::<u32>())
+                        ..(mem::size_of::<u8>() + mem::size_of::<u32>() + mem::size_of::<u32>())],
+                )?;
 
                 let key = Key::deserialize(
-                    &from[(mem::size_of::<u8>() + mem::size_of::<u32>())
-                        ..(mem::size_of::<u8>() + mem::size_of::<u32>() + key_size as usize)],
+                    &from[(mem::size_of::<u8>() + mem::size_of::<u32>() + mem::size_of::<u32>())
+                        ..(mem::size_of::<u8>()
+                            + mem::size_of::<u32>()
+                            + mem::size_of::<u32>()
+                            + key_size as usize)],
                 )?;
 
                 let value = Vec::<Field>::deserialize(
-                    &from[(mem::size_of::<u8>() + mem::size_of::<u32>() + key_size as usize + 1)
+                    &from[(mem::size_of::<u8>()
+                        + mem::size_of::<u32>()
+                        + mem::size_of::<u32>()
+                        + key_size as usize)
                         ..(pair_size as usize + mem::size_of::<u8>() + mem::size_of::<u32>())],
                 )?;
 
