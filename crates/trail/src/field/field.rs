@@ -55,11 +55,7 @@ impl Serialize for Field {
     fn serialize(&self) -> Result<Box<[u8]>, Box<dyn std::error::Error>> {
         // just the binary for value
         let value_buffer = self.value.serialize()?;
-
-        // full binary for field (type + length + value)
-        let full_buffer_length =
-            self.field_type.size() as usize + mem::size_of::<u32>() + value_buffer.len();
-        let mut full_buffer = vec![0u8; full_buffer_length].into_boxed_slice();
+        let mut full_buffer = vec![0u8; self.size() as usize].into_boxed_slice();
 
         unsafe {
             ptr::copy_nonoverlapping(
@@ -89,7 +85,7 @@ impl Serialize for Field {
     }
 
     fn size(&self) -> u32 {
-        self.value.size()
+        self.field_type.size() + mem::size_of::<u32>() as u32 + self.value.size()
     }
 }
 

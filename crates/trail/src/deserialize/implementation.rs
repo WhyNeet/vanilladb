@@ -1,6 +1,6 @@
 use std::{collections::HashMap, io::Error as IoError};
 
-use crate::field::Field;
+use crate::{field::Field, serialize::Serialize};
 
 use super::macro_impl::deserializable_number;
 
@@ -40,18 +40,10 @@ impl Deserialize for HashMap<String, Field> {
             ))?;
 
             let field_name = String::deserialize(&from[byte_offset..field_name_length])?;
-            // offset + name length +
             byte_offset = field_name_length + 1;
-            let field_length = u32::deserialize(
-                // add 1 to skip field type
-                &from[(byte_offset + 1)..(byte_offset + 1 + mem::size_of::<u32>())],
-            )?;
-            let field = Field::deserialize(
-                &from[byte_offset
-                    ..(byte_offset + 1 + mem::size_of::<u32>() + field_length as usize)],
-            )?;
+            let field = Field::deserialize(&from[byte_offset..])?;
 
-            byte_offset += 1 + mem::size_of::<u32>() + field_length as usize;
+            byte_offset += field.size() as usize;
 
             map.insert(field_name, field);
         }

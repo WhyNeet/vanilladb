@@ -73,14 +73,8 @@ impl Serialize for HashMap<&str, Field> {
 
     fn size(&self) -> u32 {
         self.iter()
-            // acc + field_name + \0 + field_type + field_value_length + field_value
-            .fold(0, |acc, (key, v)| {
-                acc + (key.len() as u32)
-                    + 1
-                    + mem::size_of::<u8>() as u32
-                    + mem::size_of::<u32>() as u32
-                    + v.size()
-            })
+            // acc + field_name + \0 + field size
+            .fold(0, |acc, (key, v)| acc + (key.len() as u32) + 1 + v.size())
     }
 }
 
@@ -133,9 +127,7 @@ impl Serialize for HashMap<String, Field> {
 
 impl Serialize for Vec<Field> {
     fn size(&self) -> u32 {
-        self.iter()
-            .map(|field| mem::size_of::<u8>() as u32 + mem::size_of::<u32>() as u32 + field.size())
-            .sum::<u32>()
+        self.iter().map(|field| field.size()).sum::<u32>()
     }
 
     fn serialize(&self) -> Result<Box<[u8]>, Box<dyn Error>> {
@@ -145,7 +137,7 @@ impl Serialize for Vec<Field> {
         let mut offset = 0;
 
         for field in self.iter() {
-            let len = mem::size_of::<u8>() as u32 + mem::size_of::<u32>() as u32 + field.size();
+            let len = field.size();
             unsafe {
                 ptr::copy_nonoverlapping(
                     field.serialize()?.as_ptr(),
@@ -172,7 +164,7 @@ impl Deserialize for Vec<Field> {
 
             vec.push(field);
 
-            offset += mem::size_of::<u8>() + mem::size_of::<u32>() + size as usize;
+            offset += size as usize;
         }
 
         Ok(vec)
@@ -181,9 +173,7 @@ impl Deserialize for Vec<Field> {
 
 impl Serialize for Vec<Rc<Field>> {
     fn size(&self) -> u32 {
-        self.iter()
-            .map(|field| mem::size_of::<u8>() as u32 + mem::size_of::<u32>() as u32 + field.size())
-            .sum::<u32>()
+        self.iter().map(|field| field.size()).sum::<u32>()
     }
 
     fn serialize(&self) -> Result<Box<[u8]>, Box<dyn Error>> {
@@ -193,7 +183,7 @@ impl Serialize for Vec<Rc<Field>> {
         let mut offset = 0;
 
         for field in self.iter() {
-            let len = mem::size_of::<u8>() as u32 + mem::size_of::<u32>() as u32 + field.size();
+            let len = field.size();
             unsafe {
                 ptr::copy_nonoverlapping(
                     field.serialize()?.as_ptr(),
@@ -214,13 +204,13 @@ impl Deserialize for Vec<Rc<Field>> {
 
         let mut offset = 0;
 
-        while from.len() - offset > 0 {
+        while offset < from.len() {
             let field = Field::deserialize(&from[(offset as usize)..])?;
             let size = field.size();
 
             vec.push(Rc::new(field));
 
-            offset += mem::size_of::<u8>() + mem::size_of::<u32>() + size as usize;
+            offset += size as usize;
         }
 
         Ok(vec)
