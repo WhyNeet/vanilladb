@@ -152,25 +152,6 @@ impl Serialize for Vec<Field> {
     }
 }
 
-impl Deserialize for Vec<Field> {
-    fn deserialize(from: &[u8]) -> Result<Self, Box<dyn Error>> {
-        let mut vec = Vec::new();
-
-        let mut offset = 0;
-
-        while from.len() - offset > 0 {
-            let field = Field::deserialize(&from[(offset as usize)..])?;
-            let size = field.size();
-
-            vec.push(field);
-
-            offset += size as usize;
-        }
-
-        Ok(vec)
-    }
-}
-
 impl Serialize for Vec<Rc<Field>> {
     fn size(&self) -> u32 {
         self.iter().map(|field| field.size()).sum::<u32>()
@@ -195,24 +176,5 @@ impl Serialize for Vec<Rc<Field>> {
         }
 
         Ok(buffer)
-    }
-}
-
-impl Deserialize for Vec<Rc<Field>> {
-    fn deserialize(from: &[u8]) -> Result<Self, Box<dyn Error>> {
-        let mut vec = Vec::new();
-
-        let mut offset = 0;
-
-        while offset < from.len() {
-            let field = Field::deserialize(&from[(offset as usize)..])?;
-            let size = field.size();
-
-            vec.push(Rc::new(field));
-
-            offset += size as usize;
-        }
-
-        Ok(vec)
     }
 }

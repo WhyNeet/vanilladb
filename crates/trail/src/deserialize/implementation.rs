@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::Error as IoError};
+use std::{collections::HashMap, io::Error as IoError, rc::Rc};
 
 use crate::{field::Field, serialize::Serialize};
 
@@ -49,5 +49,43 @@ impl Deserialize for HashMap<String, Field> {
         }
 
         Ok(map)
+    }
+}
+
+impl Deserialize for Vec<Field> {
+    fn deserialize(from: &[u8]) -> Result<Self, Box<dyn Error>> {
+        let mut vec = Vec::new();
+
+        let mut offset = 0;
+
+        while from.len() - offset > 0 {
+            let field = Field::deserialize(&from[(offset as usize)..])?;
+            let size = field.size();
+
+            vec.push(field);
+
+            offset += size as usize;
+        }
+
+        Ok(vec)
+    }
+}
+
+impl Deserialize for Vec<Rc<Field>> {
+    fn deserialize(from: &[u8]) -> Result<Self, Box<dyn Error>> {
+        let mut vec = Vec::new();
+
+        let mut offset = 0;
+
+        while offset < from.len() {
+            let field = Field::deserialize(&from[(offset as usize)..])?;
+            let size = field.size();
+
+            vec.push(Rc::new(field));
+
+            offset += size as usize;
+        }
+
+        Ok(vec)
     }
 }
