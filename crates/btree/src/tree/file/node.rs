@@ -1,28 +1,26 @@
-use std::{marker::PhantomData, mem, ptr};
+use std::{mem, ptr};
 
 use trail::{deserialize::Deserialize, serialize::Serialize};
 
 use super::item::FileBTreeNodeItem;
 
 #[derive(Debug)]
-pub struct FileBTreeNode<Key: Clone + Serialize, Value: Serialize> {
-    items: Vec<FileBTreeNodeItem<Key>>,
+pub struct FileBTreeNode {
+    items: Vec<FileBTreeNodeItem>,
     internal: bool,
     non_ptr_items: usize,
-    value: PhantomData<Value>,
 }
 
-impl<Key: Clone + Serialize, Value: Serialize> FileBTreeNode<Key, Value> {
+impl FileBTreeNode {
     pub fn empty(internal: bool) -> Self {
         Self {
             items: Vec::new(),
             internal,
             non_ptr_items: 0,
-            value: PhantomData,
         }
     }
 
-    pub fn from_items(items: &[FileBTreeNodeItem<Key>]) -> Self {
+    pub fn from_items(items: &[FileBTreeNodeItem]) -> Self {
         let mut node = Self::empty(false);
         for it in items {
             node.append(it.cloned());
@@ -38,29 +36,25 @@ impl<Key: Clone + Serialize, Value: Serialize> FileBTreeNode<Key, Value> {
         self.internal = internal;
     }
 
-    pub fn append(&mut self, item: FileBTreeNodeItem<Key>) {
+    pub fn append(&mut self, item: FileBTreeNodeItem) {
         if !item.is_pointer() {
             self.non_ptr_items += 1
         }
         self.items.push(item);
     }
 
-    pub fn pop(&mut self) -> Option<FileBTreeNodeItem<Key>> {
+    pub fn pop(&mut self) -> Option<FileBTreeNodeItem> {
         self.items.pop()
     }
 
-    pub fn insert(&mut self, item: FileBTreeNodeItem<Key>, idx: usize) {
+    pub fn insert(&mut self, item: FileBTreeNodeItem, idx: usize) {
         if !item.is_pointer() {
             self.non_ptr_items += 1
         }
         self.items.splice(idx..idx, [item]);
     }
 
-    pub fn replace(
-        &mut self,
-        item: FileBTreeNodeItem<Key>,
-        idx: usize,
-    ) -> Option<FileBTreeNodeItem<Key>> {
+    pub fn replace(&mut self, item: FileBTreeNodeItem, idx: usize) -> Option<FileBTreeNodeItem> {
         if !item.is_pointer() {
             self.non_ptr_items += 1
         }
@@ -74,15 +68,15 @@ impl<Key: Clone + Serialize, Value: Serialize> FileBTreeNode<Key, Value> {
         Some(std::mem::replace(&mut self.items[idx], item))
     }
 
-    pub fn get(&self, idx: usize) -> Option<&FileBTreeNodeItem<Key>> {
+    pub fn get(&self, idx: usize) -> Option<&FileBTreeNodeItem> {
         self.items.get(idx)
     }
 
-    pub fn last(&self) -> Option<&FileBTreeNodeItem<Key>> {
+    pub fn last(&self) -> Option<&FileBTreeNodeItem> {
         self.items.last()
     }
 
-    pub fn items(&self) -> &[FileBTreeNodeItem<Key>] {
+    pub fn items(&self) -> &[FileBTreeNodeItem] {
         &self.items
     }
 
@@ -95,11 +89,7 @@ impl<Key: Clone + Serialize, Value: Serialize> FileBTreeNode<Key, Value> {
     }
 }
 
-impl<Key, Value> Serialize for FileBTreeNode<Key, Value>
-where
-    Key: Clone + Serialize,
-    Value: Serialize,
-{
+impl Serialize for FileBTreeNode {
     fn size(&self) -> u32 {
         // size + is internal + vector of items
         mem::size_of::<u32>() as u32
@@ -145,22 +135,18 @@ where
     }
 }
 
-impl<Key, Value> Deserialize for FileBTreeNode<Key, Value>
-where
-    Key: Clone + Serialize + Deserialize,
-    Value: Serialize,
-{
+impl Deserialize for FileBTreeNode {
     fn deserialize(from: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
         let size = u32::deserialize(&from[..mem::size_of::<u32>()])?;
         let mut node = Self::empty(false);
         node.set_internal(bool::deserialize(
-            &from[mem::size_of::<u32>()..(mem::size_of::<u32>() + 1)],
+            &from[mem::size_of::<u32>()..(mem::size_of::<u32>() + mem::size_of::<bool>())],
         )?);
 
         let mut offset = mem::size_of::<u32>() + mem::size_of::<bool>();
 
         while offset < size as usize {
-            let item = FileBTreeNodeItem::<Key>::deserialize(&from[offset..])?;
+            let item = FileBTreeNodeItem::deserialize(&from[offset..])?;
             offset += item.size() as usize;
 
             node.append(item);
