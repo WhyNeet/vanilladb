@@ -7,14 +7,14 @@ use trail::field::Field;
 use trail::serialize::Serialize;
 
 #[derive(Debug)]
-pub enum FileBTreeNodeItem<Key: Clone + Serialize> {
-    Key(Key),
-    Pair(Key, Vec<Rc<Field>>),
+pub enum FileBTreeNodeItem {
+    Key(Rc<Field>),
+    Pair(Rc<Field>, Vec<Rc<Field>>),
     Pointer(RecordId),
 }
 
-impl<Key: Clone + Serialize> FileBTreeNodeItem<Key> {
-    pub fn as_pair(&self) -> (&Key, &[Rc<Field>]) {
+impl FileBTreeNodeItem {
+    pub fn as_pair(&self) -> (&Field, &[Rc<Field>]) {
         match self {
             FileBTreeNodeItem::Pair(k, v) => (k, v),
             _ => unreachable!(),
@@ -28,7 +28,7 @@ impl<Key: Clone + Serialize> FileBTreeNodeItem<Key> {
         }
     }
 
-    pub fn as_key(&self) -> &Key {
+    pub fn as_key(&self) -> &Field {
         match self {
             FileBTreeNodeItem::Key(k) => k,
             _ => unreachable!(),
@@ -58,8 +58,10 @@ impl<Key: Clone + Serialize> FileBTreeNodeItem<Key> {
 
     pub fn cloned(&self) -> Self {
         match self {
-            Self::Key(k) => Self::Key(k.clone()),
-            Self::Pair(k, v) => Self::Pair(k.clone(), v.iter().map(|val| Rc::clone(val)).collect()),
+            Self::Key(k) => Self::Key(Rc::clone(k)),
+            Self::Pair(k, v) => {
+                Self::Pair(Rc::clone(k), v.iter().map(|val| Rc::clone(val)).collect())
+            }
             Self::Pointer(ptr) => Self::Pointer(ptr.clone()),
         }
     }
@@ -74,18 +76,15 @@ impl<Key: Clone + Serialize> FileBTreeNodeItem<Key> {
     }
 }
 
-impl<Key> Serialize for FileBTreeNodeItem<Key>
-where
-    Key: Clone + Serialize,
-{
+impl Serialize for FileBTreeNodeItem {
     fn size(&self) -> u32 {
         // type + size + item
         mem::size_of::<u8>() as u32
             + mem::size_of::<u32>() as u32
             + match self {
-                Self::Key(key) => key.size(),
-                // key size + key + value
-                Self::Pair(key, value) => mem::size_of::<u32>() as u32 + key.size() + value.size(),
+                Self::Key(key) => key.size() - mem::size_of::<u32>() as u32,
+                // key field size + value
+                Self::Pair(key, value) => key.size() + value.size(),
                 Self::Pointer(rci) => rci.size(),
             }
     }
@@ -97,18 +96,11 @@ where
         match self {
             Self::Key(key) => {
                 buffer[0] = 0;
-                unsafe {
-                    ptr::copy_nonoverlapping(
-                        key.size().to_le_bytes().as_ptr(),
-                        buffer.as_mut_ptr().add(1),
-                        mem::size_of::<u32>(),
-                    );
-                }
 
                 unsafe {
                     ptr::copy_nonoverlapping(
                         key.serialize()?.as_ptr(),
-                        buffer.as_mut_ptr().add(1).add(mem::size_of::<u32>()),
+                        buffer.as_mut_ptr().add(1),
                         size as usize - 1,
                     );
                 };
@@ -130,24 +122,11 @@ where
                     );
                 }
 
-                // write key size
-                unsafe {
-                    ptr::copy_nonoverlapping(
-                        key_size.to_le_bytes().as_ptr(),
-                        buffer.as_mut_ptr().add(1).add(mem::size_of::<u32>()),
-                        mem::size_of::<u32>(),
-                    );
-                }
-
                 // write key
                 unsafe {
                     ptr::copy_nonoverlapping(
                         key.serialize()?.as_ptr(),
-                        buffer
-                            .as_mut_ptr()
-                            .add(1)
-                            .add(mem::size_of::<u32>())
-                            .add(mem::size_of::<u32>()),
+                        buffer.as_mut_ptr().add(1).add(mem::size_of::<u32>()),
                         key_size as usize,
                     );
                 }
@@ -159,7 +138,6 @@ where
                         buffer
                             .as_mut_ptr()
                             .add(1)
-                            .add(mem::size_of::<u32>())
                             .add(mem::size_of::<u32>())
                             .add(key_size as usize),
                         value_size as usize,
@@ -191,53 +169,35 @@ where
     }
 }
 
-impl<Key> Deserialize for FileBTreeNodeItem<Key>
-where
-    Key: Clone + Deserialize + Serialize,
-{
+impl Deserialize for FileBTreeNodeItem {
     fn deserialize(from: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
         let item_type = from[0];
 
         Ok(match item_type {
-            0 => {
-                let key_size = u32::deserialize(
-                    (&from[mem::size_of::<u8>()..(mem::size_of::<u8>() + mem::size_of::<u32>())])
-                        .try_into()?,
-                )?;
-
-                FileBTreeNodeItem::Key(Key::deserialize(
-                    &from[(mem::size_of::<u8>() + mem::size_of::<u32>())
-                        ..(mem::size_of::<u8>() + mem::size_of::<u32>() + key_size as usize)],
-                )?)
-            }
+            0 => FileBTreeNodeItem::Key(Rc::new(Field::deserialize(
+                &from[(mem::size_of::<u8>())..],
+            )?)),
             1 => {
                 let pair_size = u32::deserialize(
-                    (&from[mem::size_of::<u8>()..(mem::size_of::<u8>() + mem::size_of::<u32>())])
-                        .try_into()?,
-                )?;
+                    &from[mem::size_of::<u8>()..(mem::size_of::<u8>() + mem::size_of::<u32>())],
+                )? as usize;
 
-                let key_size = u32::deserialize(
+                let key = Field::deserialize(
                     &from[(mem::size_of::<u8>() + mem::size_of::<u32>())
-                        ..(mem::size_of::<u8>() + mem::size_of::<u32>() + mem::size_of::<u32>())],
+                        ..(mem::size_of::<u8>() + pair_size)],
                 )?;
 
-                let key = Key::deserialize(
-                    &from[(mem::size_of::<u8>() + mem::size_of::<u32>() + mem::size_of::<u32>())
-                        ..(mem::size_of::<u8>()
-                            + mem::size_of::<u32>()
-                            + mem::size_of::<u32>()
-                            + key_size as usize)],
-                )?;
+                let key_size = key.size() as usize;
 
                 let value = Vec::<Field>::deserialize(
-                    &from[(mem::size_of::<u8>()
-                        + mem::size_of::<u32>()
-                        + mem::size_of::<u32>()
-                        + key_size as usize)
-                        ..(pair_size as usize + mem::size_of::<u8>() + mem::size_of::<u32>())],
+                    &from[(mem::size_of::<u8>() + mem::size_of::<u32>() + key_size)
+                        ..(mem::size_of::<u8>() + pair_size)],
                 )?;
 
-                FileBTreeNodeItem::Pair(key, value.into_iter().map(|item| Rc::new(item)).collect())
+                FileBTreeNodeItem::Pair(
+                    Rc::new(key),
+                    value.into_iter().map(|item| Rc::new(item)).collect(),
+                )
             }
             2 => {
                 let id_size = u32::deserialize(
