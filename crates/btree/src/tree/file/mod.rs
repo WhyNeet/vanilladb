@@ -1,9 +1,11 @@
 pub mod item;
+pub mod node;
 
 use std::{error::Error, io::Read, mem};
 
-use llio::{io::direct::DirectFileIo, pager::Pager, util::record_id::RecordId};
-use trail::{deserialize::Deserialize, serialize::Serialize};
+use llio::{io::direct::DirectFileIo, page::PAGE_SIZE, pager::Pager, util::record_id::RecordId};
+use node::FileBTreeNode;
+use trail::{deserialize::Deserialize, field::FieldType};
 
 /// A file-based B+ tree
 pub struct FileBTree {
@@ -14,16 +16,17 @@ pub struct FileBTree {
 }
 
 impl FileBTree {
-    pub fn new(path: &str, max_degree: usize, unique: bool) -> Result<Self, Box<dyn Error>> {
+    pub fn new(
+        path: &str,
+        metadata_path: &str,
+        max_degree: usize,
+        unique: bool,
+    ) -> Result<Self, Box<dyn Error>> {
         Ok(Self {
             pager: Pager::new(DirectFileIo::new(path)?),
             unique,
             max_degree,
-            metadata: DirectFileIo::new({
-                let (path_start, path_end) = path.rsplit_once('/').unwrap_or(("", path));
-                let (filename, _ext) = path_end.rsplit_once('.').unwrap_or((path_end, ""));
-                &format!("{path_start}/{filename}.btm")
-            })?,
+            metadata: DirectFileIo::new(metadata_path)?,
         })
     }
 
@@ -47,9 +50,31 @@ impl FileBTree {
         Ok(root_rci)
     }
 
-    pub fn root(&self) -> Result<(), Box<dyn Error>> {
-        let root_rci = self.root_rci()?;
+    pub fn key_type(&self) -> Result<FieldType, Box<dyn Error>> {
+        let mut key_type = vec![0u8; mem::size_of::<u32>()].into_boxed_slice();
+        let mut page = self.metadata.load_page(1).unwrap();
 
-        Ok(())
+        page.read(&mut key_type)?;
+        let key_type = FieldType::deserialize(&key_type[..])?;
+
+        Ok(key_type)
+    }
+
+    pub fn root(&self) -> Result<FileBTreeNode, Box<dyn Error>> {
+        let root_rci = self.root_rci()?;
+        let offset = root_rci.offset();
+        let page_idx = offset / PAGE_SIZE as u64;
+        let page_offset = offset % PAGE_SIZE as u64;
+
+        let mut size = vec![0u8; mem::size_of::<u32>()].into_boxed_slice();
+        self.pager
+            .read_at(&mut size, (page_idx, page_offset as u16))?;
+        let size = u32::deserialize(&size)?;
+        let mut root = vec![0u8; size as usize].into_boxed_slice();
+        self.pager
+            .read_at(&mut root, (page_idx, page_offset as u16))?;
+        let root = FileBTreeNode::deserialize(&root)?;
+
+        Ok(root)
     }
 }
