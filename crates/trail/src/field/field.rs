@@ -1,4 +1,4 @@
-use std::{collections::HashMap, mem, ptr};
+use std::{any::Any, collections::HashMap, mem, ptr};
 
 use crate::{deserialize::Deserialize, serialize::Serialize};
 
@@ -99,8 +99,8 @@ impl Deserialize for Field {
 
         let value: Box<dyn Serialize> = match field_type {
             FieldType::String => Box::new(String::deserialize(&from[field_start..field_end])?),
-            FieldType::Byte => Box::new(i8::deserialize(&[from[field_length as usize]])?),
-            FieldType::UByte => Box::new(u8::deserialize(&[from[field_length as usize]])?),
+            FieldType::Byte => Box::new(i8::deserialize(&from[field_start..field_end])?),
+            FieldType::UByte => Box::new(u8::deserialize(&from[field_start..field_end])?),
             FieldType::Int32 => Box::new(i32::deserialize(&from[field_start..field_end])?),
             FieldType::UInt32 => Box::new(u32::deserialize(&from[field_start..field_end])?),
             FieldType::Int64 => Box::new(i64::deserialize(&from[field_start..field_end])?),
