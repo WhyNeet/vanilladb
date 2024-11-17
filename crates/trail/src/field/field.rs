@@ -1,4 +1,4 @@
-use std::{any::Any, collections::HashMap, mem, ptr};
+use std::{collections::HashMap, ffi::c_void, mem, ptr};
 
 use crate::{deserialize::Deserialize, serialize::Serialize};
 
@@ -42,6 +42,12 @@ impl Deserialize for FieldType {
             9 => FieldType::Map,
             _ => unreachable!(),
         })
+    }
+}
+
+impl PartialEq for FieldType {
+    fn eq(&self, other: &Self) -> bool {
+        self.serialize().unwrap() == other.serialize().unwrap()
     }
 }
 
@@ -196,5 +202,92 @@ impl Field {
 
     pub fn value(&self) -> &Box<dyn Serialize> {
         &self.value
+    }
+
+    pub fn value_as_string(&self) -> &str {
+        let ptr = self.value.as_ref() as *const _ as *const c_void;
+
+        unsafe { (ptr as *const String).as_ref().unwrap() }
+    }
+
+    pub fn value_as_byte(&self) -> &i8 {
+        let ptr = self.value.as_ref() as *const _ as *const c_void;
+
+        unsafe { (ptr as *const i8).as_ref().unwrap() }
+    }
+
+    pub fn value_as_ubyte(&self) -> &u8 {
+        let ptr = self.value.as_ref() as *const _ as *const c_void;
+
+        unsafe { (ptr as *const u8).as_ref().unwrap() }
+    }
+
+    pub fn value_as_int32(&self) -> &i32 {
+        let ptr = self.value.as_ref() as *const _ as *const c_void;
+
+        unsafe { (ptr as *const i32).as_ref().unwrap() }
+    }
+
+    pub fn value_as_uint32(&self) -> &u32 {
+        let ptr = self.value.as_ref() as *const _ as *const c_void;
+
+        unsafe { (ptr as *const u32).as_ref().unwrap() }
+    }
+
+    pub fn value_as_int64(&self) -> &i64 {
+        let ptr = self.value.as_ref() as *const _ as *const c_void;
+
+        unsafe { (ptr as *const i64).as_ref().unwrap() }
+    }
+
+    pub fn value_as_uint64(&self) -> &u64 {
+        let ptr = self.value.as_ref() as *const _ as *const c_void;
+
+        unsafe { (ptr as *const u64).as_ref().unwrap() }
+    }
+
+    pub fn value_as_float32(&self) -> &f32 {
+        let ptr = self.value.as_ref() as *const _ as *const c_void;
+
+        unsafe { (ptr as *const f32).as_ref().unwrap() }
+    }
+
+    pub fn value_as_float64(&self) -> &f64 {
+        let ptr = self.value.as_ref() as *const _ as *const c_void;
+
+        unsafe { (ptr as *const f64).as_ref().unwrap() }
+    }
+
+    pub fn value_as_str_map(&self) -> &HashMap<&str, Field> {
+        let ptr = self.value.as_ref() as *const _ as *const c_void;
+
+        unsafe { (ptr as *const HashMap<&str, Field>).as_ref().unwrap() }
+    }
+
+    pub fn value_as_map(&self) -> &HashMap<String, Field> {
+        let ptr = self.value.as_ref() as *const _ as *const c_void;
+
+        unsafe { (ptr as *const HashMap<String, Field>).as_ref().unwrap() }
+    }
+}
+
+impl PartialEq for Field {
+    fn eq(&self, other: &Self) -> bool {
+        if self.field_type != other.field_type {
+            return false;
+        }
+
+        match self.field_type {
+            FieldType::String => self.value_as_string() == other.value_as_string(),
+            FieldType::Byte => self.value_as_byte() == other.value_as_byte(),
+            FieldType::UByte => self.value_as_ubyte() == other.value_as_ubyte(),
+            FieldType::Int32 => self.value_as_int32() == other.value_as_int32(),
+            FieldType::UInt32 => self.value_as_uint32() == other.value_as_uint32(),
+            FieldType::Int64 => self.value_as_int64() == other.value_as_int64(),
+            FieldType::UInt64 => self.value_as_uint64() == other.value_as_uint64(),
+            FieldType::Float32 => self.value_as_float32() == other.value_as_float32(),
+            FieldType::Float64 => self.value_as_float64() == other.value_as_float64(),
+            FieldType::Map => self.value_as_str_map() == other.value_as_str_map(),
+        }
     }
 }
