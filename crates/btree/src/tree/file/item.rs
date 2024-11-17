@@ -85,7 +85,7 @@ impl Serialize for FileBTreeNodeItem {
                 Self::Key(key) => key.size() - mem::size_of::<u32>() as u32,
                 // key field size + value
                 Self::Pair(key, value) => key.size() + value.size(),
-                Self::Pointer(rci) => rci.size(),
+                Self::Pointer(rci) => rci.size() - mem::size_of::<u32>() as u32,
             }
     }
 
@@ -149,16 +149,8 @@ impl Serialize for FileBTreeNodeItem {
 
                 unsafe {
                     ptr::copy_nonoverlapping(
-                        ptr.size().to_le_bytes().as_ptr(),
-                        buffer.as_mut_ptr().add(1),
-                        mem::size_of::<u32>(),
-                    );
-                }
-
-                unsafe {
-                    ptr::copy_nonoverlapping(
                         ptr.serialize()?.as_ptr(),
-                        buffer.as_mut_ptr().add(1).add(mem::size_of::<u32>()),
+                        buffer.as_mut_ptr().add(1),
                         ptr.size() as usize,
                     );
                 };
@@ -200,15 +192,7 @@ impl Deserialize for FileBTreeNodeItem {
                 )
             }
             2 => {
-                let id_size = u32::deserialize(
-                    (&from[mem::size_of::<u8>()..(mem::size_of::<u8>() + mem::size_of::<u32>())])
-                        .try_into()?,
-                )?;
-
-                FileBTreeNodeItem::Pointer(RecordId::deserialize(
-                    &from[(mem::size_of::<u8>() + mem::size_of::<u32>())
-                        ..(mem::size_of::<u8>() + mem::size_of::<u32>() + id_size as usize)],
-                )?)
+                FileBTreeNodeItem::Pointer(RecordId::deserialize(&from[(mem::size_of::<u8>())..])?)
             }
             _ => unreachable!(),
         })
