@@ -6,19 +6,20 @@ use super::RecordId;
 
 impl Serialize for RecordId {
     fn serialize(&self) -> Result<Box<[u8]>, Box<dyn Error>> {
-        let mut buf = vec![0u8; 32 as usize].into_boxed_slice();
+        let size = self.size() as usize;
+        let mut buf = vec![0u8; size].into_boxed_slice();
         unsafe {
             ptr::copy_nonoverlapping(
-                (self.path().len() as u16).serialize()?.as_ptr(),
-                (&mut buf[..2]).as_mut_ptr(),
-                mem::size_of::<u16>(),
+                (size as u32).serialize()?.as_ptr(),
+                (&mut buf[..mem::size_of::<u32>()]).as_mut_ptr(),
+                mem::size_of::<u32>(),
             );
         };
 
         unsafe {
             ptr::copy_nonoverlapping(
                 self.path.serialize()?.as_ptr(),
-                (&mut buf[2..]).as_mut_ptr(),
+                (&mut buf[mem::size_of::<u32>()..]).as_mut_ptr(),
                 self.path.size() as usize,
             );
         };
@@ -26,7 +27,7 @@ impl Serialize for RecordId {
         unsafe {
             ptr::copy_nonoverlapping(
                 self.offset().serialize()?.as_ptr(),
-                (&mut buf[(2 + self.path.len())..]).as_mut_ptr(),
+                (&mut buf[(mem::size_of::<u32>() + self.path.len())..]).as_mut_ptr(),
                 self.offset.size() as usize,
             );
         }
@@ -35,17 +36,17 @@ impl Serialize for RecordId {
     }
 
     fn size(&self) -> u32 {
-        mem::size_of::<u16>() as u32 + self.path.size() + self.offset.size()
+        mem::size_of::<u32>() as u32 + self.path.size() + self.offset.size()
     }
 }
 
 impl Deserialize for RecordId {
     fn deserialize(from: &[u8]) -> Result<Self, Box<dyn Error>> {
-        let path_len = u16::deserialize(&from[..mem::size_of::<u16>()])?;
+        let record_len = u32::deserialize(&from[..mem::size_of::<u32>()])? as usize;
         let path = String::deserialize(
-            &from[mem::size_of::<u16>()..(mem::size_of::<u16>() + path_len as usize)],
+            &from[mem::size_of::<u32>()..(record_len - mem::size_of::<u64>())],
         )?;
-        let offset = u64::deserialize(&from[(mem::size_of::<u16>() + path_len as usize)..])?;
+        let offset = u64::deserialize(&from[(mem::size_of::<u32>() + path.len())..record_len])?;
 
         Ok(Self { path, offset })
     }
