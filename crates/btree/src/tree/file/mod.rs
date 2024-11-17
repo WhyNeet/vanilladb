@@ -3,7 +3,12 @@ pub mod node;
 
 use std::{error::Error, io::Read, mem};
 
-use llio::{io::direct::DirectFileIo, page::PAGE_SIZE, pager::Pager, util::record_id::RecordId};
+use llio::{
+    io::direct::DirectFileIo,
+    page::PAGE_SIZE,
+    pager::Pager,
+    util::record_id::{self, RecordId},
+};
 use node::FileBTreeNode;
 use trail::{deserialize::Deserialize, field::FieldType};
 
@@ -76,5 +81,44 @@ impl FileBTree {
         let root = FileBTreeNode::deserialize(&root)?;
 
         Ok(root)
+    }
+
+    fn get_node_child(
+        &self,
+        node: FileBTreeNode,
+        idx: usize,
+    ) -> Result<Option<FileBTreeNode>, Box<dyn Error>> {
+        // each node has [ptr, key, ptr, key, ...]
+        // we need to retrieve the ptr
+        let record_id = node.get(idx * 2);
+
+        if record_id.is_none() {
+            return Ok(None);
+        }
+
+        let record_id = record_id.unwrap();
+
+        let mut node_size = vec![0u8; mem::size_of::<u32>()].into_boxed_slice();
+        self.pager.read_at(
+            &mut node_size,
+            (
+                record_id.offset() / PAGE_SIZE as u64,
+                (record_id.offset() % PAGE_SIZE as u64) as u16,
+            ),
+        )?;
+        let node_size = u32::deserialize(&node_size)?;
+
+        let mut node = vec![0u8; node_size as usize].into_boxed_slice();
+        self.pager.read_at(
+            &mut node,
+            (
+                record_id.offset() / PAGE_SIZE as u64,
+                (record_id.offset() % PAGE_SIZE as u64) as u16,
+            ),
+        )?;
+
+        let node = FileBTreeNode::deserialize(&node)?;
+
+        Ok(Some(node))
     }
 }
