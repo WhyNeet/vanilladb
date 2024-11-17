@@ -86,3 +86,61 @@ fn map_deserialization_works() {
         assert_eq!(*stars, 100);
     }
 }
+
+#[test]
+fn field_eq_works() {
+    assert_eq!(
+        Field::string("hello".to_string()),
+        Field::string("hello".to_string())
+    );
+    assert_eq!(Field::byte(8), Field::byte(8));
+    assert_eq!(Field::ubyte(8), Field::ubyte(8));
+    assert_eq!(Field::int32(8), Field::int32(8));
+    assert_eq!(Field::uint32(8), Field::uint32(8));
+    assert_eq!(Field::int64(8), Field::int64(8));
+    assert_eq!(Field::uint64(8), Field::uint64(8));
+    assert_eq!(Field::float32(8f32), Field::float32(8f32));
+    assert_eq!(Field::float64(8f64), Field::float64(8f64));
+
+    let map = {
+        let name = Field::string("whyneet".to_string());
+        let stars = Field::int32(100);
+
+        let mut map = HashMap::new();
+        map.insert("name", name);
+        map.insert("stars", stars);
+
+        map
+    };
+
+    let map2 = {
+        let name = Field::string("whyneet".to_string());
+        let stars = Field::int32(100);
+
+        let mut map = HashMap::new();
+        map.insert("name", name);
+        map.insert("stars", stars);
+
+        map
+    };
+
+    let map = Field::map_str(map);
+    let map2 = Field::map_str(map2);
+
+    assert_eq!(map, map2);
+
+    let map3 = {
+        let name = Field::string("whyneet".to_string());
+        let stars = Field::int32(99535);
+
+        let mut map = HashMap::new();
+        map.insert("name", name);
+        map.insert("stars", stars);
+
+        map
+    };
+
+    let map3 = Field::map_str(map3);
+
+    assert_ne!(map2, map3);
+}
