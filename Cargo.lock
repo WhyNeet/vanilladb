@@ -60,6 +60,7 @@ dependencies = [
 name = "testbed"
 version = "0.1.0"
 dependencies = [
+ "btree",
  "comet",
  "trail",
 ]

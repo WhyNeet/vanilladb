@@ -1,83 +1,102 @@
 use std::{error::Error, path::PathBuf};
 
+use btree::tree::file::FileBTree;
 use comet::{comet::Comet, document::Document, io::io_config::IoConfig};
 use trail::field::Field;
 
 fn main() {
-    if PathBuf::from(".comet_data").exists() {
-        read().unwrap();
-    } else {
-        write().unwrap();
-    }
+    // if PathBuf::from(".comet_data").exists() {
+    //     read().unwrap();
+    // } else {
+    //     write().unwrap();
+    // }
+    tree()
 }
 
-fn read() -> Result<(), Box<dyn Error>> {
-    println!("--- reading data ---");
+// fn read() -> Result<(), Box<dyn Error>> {
+//     println!("--- reading data ---");
 
-    let config = IoConfig::builder()
-        .data_dir(".comet_data".to_string())
-        .build();
-    let mut comet = Comet::new(config);
-    comet.initialize().unwrap();
+//     let config = IoConfig::builder()
+//         .data_dir(".comet_data".to_string())
+//         .build();
+//     let mut comet = Comet::new(config);
+//     comet.initialize().unwrap();
 
-    let database = comet.create_database("primary".to_string())?;
-    let collection = database.create_collection("users".to_string()).unwrap();
+//     let database = comet.create_database("primary".to_string())?;
+//     let collection = database.create_collection("users".to_string()).unwrap();
 
-    let mut cursor = collection.cursor();
+//     let mut cursor = collection.cursor();
 
-    for i in 0..4 {
-        cursor.next_document()?;
-    }
+//     for i in 0..4 {
+//         cursor.next_document()?;
+//     }
 
-    let document = if cursor.is_current_document_removed()? {
-        println!("current document is already removed, inserting a new one");
-        let mut document = Document::new();
-        document
-            .append_field("id".to_string(), Field::uint32(10))
-            .append_field(
-                "username".to_string(),
-                Field::string("new user 10".to_string()),
-            );
-        cursor.insert_document(&document).unwrap();
-        document
-    } else {
-        let document = cursor.read_current_document()?;
-        cursor.remove_current_document().unwrap();
-        println!("removed");
-        document
-    };
-    println!("document: {document:?}");
+//     let document = if cursor.is_current_document_removed()? {
+//         println!("current document is already removed, inserting a new one");
+//         let mut document = Document::new();
+//         document
+//             .append_field("id".to_string(), Field::uint32(10))
+//             .append_field(
+//                 "username".to_string(),
+//                 Field::string("new user 10".to_string()),
+//             );
+//         cursor.insert_document(&document).unwrap();
+//         document
+//     } else {
+//         let document = cursor.read_current_document()?;
+//         cursor.remove_current_document().unwrap();
+//         println!("removed");
+//         document
+//     };
+//     println!("document: {document:?}");
 
-    println!("--- done ---");
+//     println!("--- done ---");
 
-    Ok(())
-}
+//     Ok(())
+// }
 
-fn write() -> Result<(), Box<dyn Error>> {
-    println!("--- writing data ---");
+// fn write() -> Result<(), Box<dyn Error>> {
+//     println!("--- writing data ---");
 
-    let config = IoConfig::builder()
-        .data_dir(".comet_data".to_string())
-        .build();
-    let mut comet = Comet::new(config);
-    comet.initialize().unwrap();
+//     let config = IoConfig::builder()
+//         .data_dir(".comet_data".to_string())
+//         .build();
+//     let mut comet = Comet::new(config);
+//     comet.initialize().unwrap();
 
-    let database = comet.create_database("primary".to_string())?;
-    let collection = database.create_collection("users".to_string()).unwrap();
+//     let database = comet.create_database("primary".to_string())?;
+//     let collection = database.create_collection("users".to_string()).unwrap();
 
-    for i in 0..10 {
-        let mut document = Document::new();
-        document.append_field("id".to_string(), Field::uint32(i));
-        document.append_field("username".to_string(), Field::string(format!("user {i}")));
-        document.append_field(
-            "email".to_string(),
-            Field::string(format!("user.{i}@example.com")),
-        );
+//     for i in 0..10 {
+//         let mut document = Document::new();
+//         document.append_field("id".to_string(), Field::uint32(i));
+//         document.append_field("username".to_string(), Field::string(format!("user {i}")));
+//         document.append_field(
+//             "email".to_string(),
+//             Field::string(format!("user.{i}@example.com")),
+//         );
 
-        collection.insert_document(&document).unwrap();
-    }
+//         collection.insert_document(&document).unwrap();
+//     }
 
-    println!("--- done ---");
+//     println!("--- done ---");
 
-    Ok(())
+//     Ok(())
+// }
+
+fn tree() {
+    let mut tree = FileBTree::new(
+        ".comet_data/primary/users.tree",
+        ".comet_data/primary/users.meta",
+        4,
+        true,
+    )
+    .unwrap();
+    let root = tree.root().unwrap();
+
+    println!("{root:?}");
+
+    let root = tree.root().unwrap();
+
+    println!("root received: {root:?}")
 }
