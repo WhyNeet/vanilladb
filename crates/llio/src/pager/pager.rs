@@ -60,6 +60,13 @@ impl Pager {
         Ok((bytes_written, page_idx))
     }
 
+    pub fn occupied(&self) -> io::Result<(u64, u16)> {
+        Ok((
+            self.last_free_page,
+            self.io.load_page(self.last_free_page)?.occupied(),
+        ))
+    }
+
     pub fn erase_at(&mut self, size: usize, offset: (u64, u16)) -> io::Result<usize> {
         let mut bytes_erased = 0;
         let mut page_idx = offset.0;

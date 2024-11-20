@@ -50,6 +50,10 @@ impl Page {
         PAGE_SIZE as u16 - self.occupied
     }
 
+    pub fn occupied(&self) -> u16 {
+        self.occupied
+    }
+
     pub fn empty(&self) -> bool {
         self.occupied == 2
     }
