@@ -291,3 +291,28 @@ impl PartialEq for Field {
         }
     }
 }
+
+impl PartialOrd for Field {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        if self.field_type != other.field_type {
+            return None;
+        }
+
+        match self.field_type {
+            FieldType::String => self.value_as_string().partial_cmp(other.value_as_string()),
+            FieldType::Byte => self.value_as_byte().partial_cmp(other.value_as_byte()),
+            FieldType::UByte => self.value_as_ubyte().partial_cmp(other.value_as_ubyte()),
+            FieldType::Int32 => self.value_as_int32().partial_cmp(other.value_as_int32()),
+            FieldType::UInt32 => self.value_as_uint32().partial_cmp(other.value_as_uint32()),
+            FieldType::Int64 => self.value_as_int64().partial_cmp(other.value_as_int64()),
+            FieldType::UInt64 => self.value_as_uint64().partial_cmp(other.value_as_uint64()),
+            FieldType::Float32 => self
+                .value_as_float32()
+                .partial_cmp(other.value_as_float32()),
+            FieldType::Float64 => self
+                .value_as_float64()
+                .partial_cmp(other.value_as_float64()),
+            _ => None,
+        }
+    }
+}
