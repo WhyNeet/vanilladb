@@ -208,4 +208,40 @@ impl FileBTree {
             Ok(true)
         }
     }
+
+    pub fn get(&mut self, key: &Field) -> Result<Option<Box<[Rc<Field>]>>, Box<dyn Error>> {
+        let root = self.root()?;
+        self._get(key, root)
+    }
+
+    fn _get(
+        &self,
+        key: &Field,
+        root: FileBTreeNode,
+    ) -> Result<Option<Box<[Rc<Field>]>>, Box<dyn Error>> {
+        if !root.is_internal() {
+            return Ok(root
+                .items()
+                .iter()
+                .map(|item| item.as_pair())
+                .find(|item| item.0.eq(key))
+                .map(|(_, v)| v.into_iter().map(|ptr| Rc::clone(ptr)).collect()));
+        }
+
+        let idx = root
+            .items()
+            .iter()
+            .enumerate()
+            .filter(|(_idx, item)| item.is_key())
+            .map(|(idx, item)| (idx, item.as_key()))
+            .find(|(_idx, k)| (*k).gt(key))
+            .map(|(idx, _k)| idx)
+            .unwrap_or(root.items().len())
+            - 1;
+
+        let ptr = root.items().get(idx).map(|item| item.as_pointer()).unwrap();
+        let node = self.read_node(ptr)?;
+
+        self._get(key, node)
+    }
 }
