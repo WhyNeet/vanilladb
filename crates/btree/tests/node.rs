@@ -1,12 +1,11 @@
 use std::{ptr, rc::Rc};
 
 use btree::tree::file::{item::FileBTreeNodeItem, node::FileBTreeNode};
-use llio::util::record_id::RecordId;
 use trail::{deserialize::Deserialize, field::Field, serialize::Serialize};
 
 #[test]
 pub fn node_serialization_works() {
-    let mut node = FileBTreeNode::empty(false);
+    let mut node = FileBTreeNode::empty(false, None);
     node.append(FileBTreeNodeItem::Key(Rc::new(Field::ubyte(10))));
     node.append(FileBTreeNodeItem::Pair(
         Rc::new(Field::ubyte(11)),
