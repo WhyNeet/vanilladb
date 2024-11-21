@@ -5,8 +5,10 @@ use std::{
     error::Error,
     io::{Read, Write},
     mem,
+    rc::Rc,
 };
 
+use item::FileBTreeNodeItem;
 use llio::{io::direct::DirectFileIo, page::PAGE_SIZE, pager::Pager, util::record_id::RecordId};
 use node::FileBTreeNode;
 use trail::{
@@ -63,11 +65,9 @@ impl FileBTree {
     }
 
     fn create_root(&mut self) -> Result<(FileBTreeNode, RecordId), Box<dyn Error>> {
-        let root = FileBTreeNode::empty(false);
+        let root = FileBTreeNode::empty(false, Some(RecordId::new("".to_string(), 2)));
 
-        self.pager.write(&root.serialize()?)?;
-
-        let root_record_id = RecordId::new("".to_string(), 0);
+        let root_record_id = self.save_node(&root)?;
 
         let mut metadata_page = self.metadata.load_page(0)?;
         metadata_page.write(&root_record_id.serialize()?)?;
@@ -88,37 +88,11 @@ impl FileBTree {
 
     pub fn root(&mut self) -> Result<FileBTreeNode, Box<dyn Error>> {
         if let Some(root_rci) = self.root_rci()? {
-            let offset = root_rci.offset();
-            let page_idx = offset / PAGE_SIZE as u64;
-            let page_offset = offset % PAGE_SIZE as u64;
-
-            let mut size = vec![0u8; mem::size_of::<u32>()].into_boxed_slice();
-            self.pager
-                .read_at(&mut size, (page_idx, 2 + page_offset as u16))?;
-            let size = u32::deserialize(&size)?;
-            let mut root = vec![0u8; size as usize].into_boxed_slice();
-            self.pager
-                .read_at(&mut root, (page_idx, 2 + page_offset as u16))?;
-            let root = FileBTreeNode::deserialize(&root)?;
+            let root = self.read_node(&root_rci)?;
 
             Ok(root)
         } else {
             Ok(self.create_root()?.0)
-        }
-    }
-
-    pub fn insert(&mut self, kv: (Field, Field)) -> Result<bool, Box<dyn Error>> {
-        let root = self.root()?;
-        self._insert(root, kv)
-    }
-
-    fn _insert(&mut self, root: FileBTreeNode, kv: (Field, Field)) -> Result<bool, Box<dyn Error>> {
-        if root.is_internal() {
-            Ok(false)
-        } else {
-            // let idx = root.items().iter().map(|rci| self.read_node(rci).unwrap()).position(|pair| pair.); // SERIALIZE ITEMS WITHIN NODES
-
-            Ok(true)
         }
     }
 
@@ -142,18 +116,27 @@ impl FileBTree {
             ),
         )?;
 
-        let node = FileBTreeNode::deserialize(&node)?;
+        let mut node = FileBTreeNode::deserialize(&node)?;
+
+        node.set_record_id(Some(record_id.clone()));
 
         Ok(node)
     }
 
     fn save_node(&mut self, node: &FileBTreeNode) -> Result<RecordId, Box<dyn Error>> {
-        let (page_idx, page_occ) = self.pager.occupied()?;
-        self.pager.write(&node.serialize()?)?;
+        let pos = if let Some(record_id) = node.record_id() {
+            (
+                record_id.offset() / PAGE_SIZE as u64,
+                (record_id.offset() % PAGE_SIZE as u64) as u16,
+            )
+        } else {
+            self.pager.occupied()?
+        };
+        self.pager.replace_at(&node.serialize()?, pos)?;
 
         Ok(RecordId::new(
             "".to_string(),
-            page_idx * 4096 + page_occ as u64,
+            pos.0 * PAGE_SIZE as u64 + pos.1 as u64,
         ))
     }
 
@@ -169,5 +152,60 @@ impl FileBTree {
         )?;
 
         Ok(node)
+    }
+}
+
+impl FileBTree {
+    pub fn insert(&mut self, kv: (Field, Rc<Field>)) -> Result<bool, Box<dyn Error>> {
+        let root = self.root()?;
+        self._insert(root, kv)
+    }
+
+    fn _insert(
+        &mut self,
+        mut root: FileBTreeNode,
+        kv: (Field, Rc<Field>),
+    ) -> Result<bool, Box<dyn Error>> {
+        if root.is_internal() {
+            let idx = root
+                .items()
+                .iter()
+                .enumerate()
+                .filter(|(_, k)| k.is_key())
+                .rev()
+                .map(|(idx, k)| (idx, k.as_key()))
+                .find(|(_idx, key)| kv.0.ge(key))
+                .map(|(idx, _)| idx + 1)
+                .unwrap_or(0);
+
+            let ptr = root.items()[idx].as_pointer();
+
+            self._insert(self.read_node(ptr)?, kv)
+        } else {
+            let idx = root
+                .items()
+                .iter()
+                .map(|item| item.as_pair())
+                .position(|(k, _v)| k.ge(&kv.0))
+                .unwrap_or(root.items().len());
+
+            let item = root.get(idx).map(|item| item.cloned());
+
+            if item.is_some() && self.unique && item.as_ref().unwrap().as_pair().1[0].eq(&kv.1) {
+                return Ok(false);
+            }
+
+            if item.is_some() && item.as_ref().unwrap().as_pair().0.eq(&kv.0) {
+                let mut item = item.unwrap();
+                item.push_value(kv.1);
+                root.replace(item, idx);
+            } else {
+                root.insert(FileBTreeNodeItem::Pair(Rc::new(kv.0), vec![kv.1]), idx);
+            }
+
+            self.save_node(&root)?;
+
+            Ok(true)
+        }
     }
 }

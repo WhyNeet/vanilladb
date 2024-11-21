@@ -10,19 +10,21 @@ pub struct FileBTreeNode {
     items: Vec<FileBTreeNodeItem>,
     internal: bool,
     non_ptr_items: usize,
+    rci: Option<RecordId>,
 }
 
 impl FileBTreeNode {
-    pub fn empty(internal: bool) -> Self {
+    pub fn empty(internal: bool, rci: Option<RecordId>) -> Self {
         Self {
             items: Vec::new(),
             internal,
             non_ptr_items: 0,
+            rci,
         }
     }
 
-    pub fn from_items(items: &[FileBTreeNodeItem]) -> Self {
-        let mut node = Self::empty(false);
+    pub fn from_items(items: &[FileBTreeNodeItem], rci: Option<RecordId>) -> Self {
+        let mut node = Self::empty(false, rci);
         for it in items {
             node.append(it.cloned());
             if !it.is_pair() {
@@ -85,9 +87,17 @@ impl FileBTreeNode {
         self.internal
     }
 
-    // pub fn non_ptr_len(&self) -> usize {
-    //     self.non_ptr_items
-    // }
+    pub fn non_ptr_len(&self) -> usize {
+        self.non_ptr_items
+    }
+
+    pub fn record_id(&self) -> Option<&RecordId> {
+        self.rci.as_ref()
+    }
+
+    pub fn set_record_id(&mut self, record_id: Option<RecordId>) {
+        self.rci = record_id;
+    }
 }
 
 impl Serialize for FileBTreeNode {
@@ -139,7 +149,7 @@ impl Serialize for FileBTreeNode {
 impl Deserialize for FileBTreeNode {
     fn deserialize(from: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
         let size = u32::deserialize(&from[..mem::size_of::<u32>()])?;
-        let mut node = Self::empty(false);
+        let mut node = Self::empty(false, None);
         node.set_internal(bool::deserialize(
             &from[mem::size_of::<u32>()..(mem::size_of::<u32>() + mem::size_of::<bool>())],
         )?);
