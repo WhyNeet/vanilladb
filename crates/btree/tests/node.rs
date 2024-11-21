@@ -1,18 +1,17 @@
-use btree::tree::file::node::FileBTreeNode;
+use std::{ptr, rc::Rc};
+
+use btree::tree::file::{item::FileBTreeNodeItem, node::FileBTreeNode};
 use llio::util::record_id::RecordId;
-use trail::{deserialize::Deserialize, serialize::Serialize};
+use trail::{deserialize::Deserialize, field::Field, serialize::Serialize};
 
 #[test]
 pub fn node_serialization_works() {
     let mut node = FileBTreeNode::empty(false);
-    // node.append(FileBTreeNodeItem::Key(Rc::new(Field::ubyte(10))));
-    // node.append(FileBTreeNodeItem::Pair(
-    //     Rc::new(Field::ubyte(11)),
-    //     vec![Rc::new(Field::string("value".to_string()))],
-    // ));
-
-    node.append(RecordId::new("/hello/world".to_string(), 512));
-    node.append(RecordId::new("/hello/there".to_string(), 52));
+    node.append(FileBTreeNodeItem::Key(Rc::new(Field::ubyte(10))));
+    node.append(FileBTreeNodeItem::Pair(
+        Rc::new(Field::ubyte(11)),
+        vec![Rc::new(Field::string("value".to_string()))],
+    ));
 
     let buffer = node.serialize();
     assert!(buffer.is_ok());
@@ -21,9 +20,8 @@ pub fn node_serialization_works() {
     assert_eq!(
         &buffer[..],
         [
-            53, 0, 0, 0, 0, 24, 0, 0, 0, 47, 104, 101, 108, 108, 111, 47, 119, 111, 114, 108, 100,
-            0, 2, 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 47, 104, 101, 108, 108, 111, 47, 116, 104, 101,
-            114, 101, 52, 0, 0, 0, 0, 0, 0, 0
+            33, 0, 0, 0, 0, 0, 2, 1, 0, 0, 0, 10, 1, 20, 0, 0, 0, 2, 1, 0, 0, 0, 11, 0, 5, 0, 0, 0,
+            118, 97, 108, 117, 101,
         ]
     );
 }
@@ -31,21 +29,44 @@ pub fn node_serialization_works() {
 #[test]
 pub fn node_deserialization_works() {
     let buffer = [
-        53, 0, 0, 0, 0, 24, 0, 0, 0, 47, 104, 101, 108, 108, 111, 47, 119, 111, 114, 108, 100, 0,
-        2, 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 47, 104, 101, 108, 108, 111, 47, 116, 104, 101, 114, 101,
-        52, 0, 0, 0, 0, 0, 0, 0,
+        33, 0, 0, 0, 0, 0, 2, 1, 0, 0, 0, 10, 1, 20, 0, 0, 0, 2, 1, 0, 0, 0, 11, 0, 5, 0, 0, 0,
+        118, 97, 108, 117, 101,
     ];
     let node = FileBTreeNode::deserialize(&buffer);
     assert!(node.is_ok());
 
     let node = node.unwrap();
     assert_eq!(node.is_internal(), false);
+    assert!(node.items()[0].is_key());
+    assert_eq!(
+        unsafe {
+            (Box::into_raw(ptr::read(node.items()[0].as_key().value() as *const Box<_>))
+                as *const u8)
+                .as_ref()
+                .unwrap()
+        },
+        &10
+    );
 
-    assert!(node.get(0).is_some());
-    assert_eq!(node.get(0).unwrap().path(), "/hello/world");
-    assert_eq!(node.get(0).unwrap().offset(), 512);
-
-    assert!(node.get(1).is_some());
-    assert_eq!(node.get(1).unwrap().path(), "/hello/there");
-    assert_eq!(node.get(1).unwrap().offset(), 52);
+    assert!(node.items()[1].is_pair());
+    assert_eq!(
+        unsafe {
+            (Box::into_raw(ptr::read(
+                node.items()[1].as_pair().0.value() as *const Box<_>
+            )) as *const u8)
+                .as_ref()
+                .unwrap()
+        },
+        &11
+    );
+    assert_eq!(
+        unsafe {
+            (Box::into_raw(ptr::read(
+                node.items()[1].as_pair().1[0].value() as *const Box<_>
+            )) as *const String)
+                .as_ref()
+                .unwrap()
+        },
+        "value"
+    );
 }
