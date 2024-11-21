@@ -9,7 +9,11 @@ use std::{
 
 use llio::{io::direct::DirectFileIo, page::PAGE_SIZE, pager::Pager, util::record_id::RecordId};
 use node::FileBTreeNode;
-use trail::{deserialize::Deserialize, field::FieldType, serialize::Serialize};
+use trail::{
+    deserialize::Deserialize,
+    field::{Field, FieldType},
+    serialize::Serialize,
+};
 
 /// A file-based B+ tree
 pub struct FileBTree {
@@ -103,21 +107,22 @@ impl FileBTree {
         }
     }
 
-    fn get_node_child(
-        &self,
-        node: FileBTreeNode,
-        idx: usize,
-    ) -> Result<Option<FileBTreeNode>, Box<dyn Error>> {
-        // each node has [ptr, key, ptr, key, ...]
-        // we need to retrieve the ptr
-        let record_id = node.get(idx * 2);
+    pub fn insert(&mut self, kv: (Field, Field)) -> Result<bool, Box<dyn Error>> {
+        let root = self.root()?;
+        self._insert(root, kv)
+    }
 
-        if record_id.is_none() {
-            return Ok(None);
+    fn _insert(&mut self, root: FileBTreeNode, kv: (Field, Field)) -> Result<bool, Box<dyn Error>> {
+        if root.is_internal() {
+            Ok(false)
+        } else {
+            // let idx = root.items().iter().map(|rci| self.read_node(rci).unwrap()).position(|pair| pair.); // SERIALIZE ITEMS WITHIN NODES
+
+            Ok(true)
         }
+    }
 
-        let record_id = record_id.unwrap();
-
+    fn read_node(&self, record_id: &RecordId) -> Result<FileBTreeNode, Box<dyn Error>> {
         let mut node_size = vec![0u8; mem::size_of::<u32>()].into_boxed_slice();
         self.pager.read_at(
             &mut node_size,
@@ -139,6 +144,30 @@ impl FileBTree {
 
         let node = FileBTreeNode::deserialize(&node)?;
 
-        Ok(Some(node))
+        Ok(node)
+    }
+
+    fn save_node(&mut self, node: &FileBTreeNode) -> Result<RecordId, Box<dyn Error>> {
+        let (page_idx, page_occ) = self.pager.occupied()?;
+        self.pager.write(&node.serialize()?)?;
+
+        Ok(RecordId::new(
+            "".to_string(),
+            page_idx * 4096 + page_occ as u64,
+        ))
+    }
+
+    fn remove_node(&mut self, record_id: &RecordId) -> Result<FileBTreeNode, Box<dyn Error>> {
+        let node = self.read_node(record_id)?;
+
+        self.pager.erase_at(
+            node.size() as usize,
+            (
+                record_id.offset() / PAGE_SIZE as u64,
+                (record_id.offset() % PAGE_SIZE as u64) as u16,
+            ),
+        )?;
+
+        Ok(node)
     }
 }
