@@ -11,6 +11,7 @@ pub struct FileBTreeNode {
     internal: bool,
     non_ptr_items: usize,
     rci: Option<RecordId>,
+    parent: Option<RecordId>,
 }
 
 impl FileBTreeNode {
@@ -20,6 +21,7 @@ impl FileBTreeNode {
             internal,
             non_ptr_items: 0,
             rci,
+            parent: None,
         }
     }
 
@@ -83,6 +85,10 @@ impl FileBTreeNode {
         &self.items
     }
 
+    pub fn take_items(self) -> Vec<FileBTreeNodeItem> {
+        self.items
+    }
+
     pub fn is_internal(&self) -> bool {
         self.internal
     }
@@ -98,14 +104,24 @@ impl FileBTreeNode {
     pub fn set_record_id(&mut self, record_id: Option<RecordId>) {
         self.rci = record_id;
     }
+
+    pub fn parent(&self) -> Option<&RecordId> {
+        self.parent.as_ref()
+    }
+
+    pub fn set_parent(&mut self, parent: Option<RecordId>) {
+        self.parent = parent;
+    }
 }
 
 impl Serialize for FileBTreeNode {
     fn size(&self) -> u32 {
-        // size + is internal + vector of items
+        // size + is internal + has parent + parent RecordId + vector of items
         mem::size_of::<u32>() as u32
             + mem::size_of::<bool>() as u32
+            + mem::size_of::<bool>() as u32
             + self.items.iter().map(|item| item.size()).sum::<u32>()
+            + self.parent.as_ref().map(|rci| rci.size()).unwrap_or(0)
     }
 
     fn serialize(&self) -> Result<Box<[u8]>, Box<dyn std::error::Error>> {
@@ -128,7 +144,34 @@ impl Serialize for FileBTreeNode {
             );
         }
 
-        let mut offset = mem::size_of::<u32>() + mem::size_of::<bool>();
+        unsafe {
+            ptr::copy_nonoverlapping(
+                self.parent.is_some().serialize()?.as_ptr(),
+                buffer
+                    .as_mut_ptr()
+                    .add(mem::size_of::<u32>())
+                    .add(mem::size_of::<bool>()),
+                mem::size_of::<bool>(),
+            );
+        }
+
+        if let Some(ref rci) = self.parent {
+            unsafe {
+                ptr::copy_nonoverlapping(
+                    rci.serialize()?.as_ptr(),
+                    buffer
+                        .as_mut_ptr()
+                        .add(mem::size_of::<u32>())
+                        .add(mem::size_of::<bool>())
+                        .add(mem::size_of::<bool>()),
+                    rci.size() as usize,
+                );
+            }
+        }
+
+        let mut offset = mem::size_of::<u32>()
+            + mem::size_of::<bool>() * 2
+            + self.parent.as_ref().map(|rci| rci.size()).unwrap_or(0) as usize;
         for item in self.items.iter().map(|item| item.serialize()) {
             let item = item?;
             unsafe {
@@ -153,8 +196,22 @@ impl Deserialize for FileBTreeNode {
         node.set_internal(bool::deserialize(
             &from[mem::size_of::<u32>()..(mem::size_of::<u32>() + mem::size_of::<bool>())],
         )?);
+        let has_parent = bool::deserialize(
+            &from[(mem::size_of::<u32>() + mem::size_of::<bool>())
+                ..(mem::size_of::<u32>() + mem::size_of::<bool>() * 2)],
+        )?;
 
-        let mut offset = mem::size_of::<u32>() + mem::size_of::<bool>();
+        let parent_rci = if has_parent {
+            Some(RecordId::deserialize(
+                &from[(mem::size_of::<u32>() + mem::size_of::<bool>() * 2)..],
+            )?)
+        } else {
+            None
+        };
+
+        let mut offset = mem::size_of::<u32>()
+            + mem::size_of::<bool>() * 2
+            + parent_rci.as_ref().map(|rci| rci.size()).unwrap_or(0) as usize;
 
         while offset < size as usize {
             let item = FileBTreeNodeItem::deserialize(&from[offset..])?;
@@ -162,6 +219,8 @@ impl Deserialize for FileBTreeNode {
 
             node.append(item);
         }
+
+        node.set_parent(parent_rci);
 
         Ok(node)
     }
