@@ -1,6 +1,7 @@
 use std::{ptr, rc::Rc};
 
 use btree::tree::file::{item::FileBTreeNodeItem, node::FileBTreeNode};
+use llio::util::record_id::RecordId;
 use trail::{deserialize::Deserialize, field::Field, serialize::Serialize};
 
 #[test]
@@ -11,6 +12,7 @@ pub fn node_serialization_works() {
         Rc::new(Field::ubyte(11)),
         vec![Rc::new(Field::string("value".to_string()))],
     ));
+    node.set_parent(Some(RecordId::new("path".to_string(), 400)));
 
     let buffer = node.serialize();
     assert!(buffer.is_ok());
@@ -19,8 +21,8 @@ pub fn node_serialization_works() {
     assert_eq!(
         &buffer[..],
         [
-            33, 0, 0, 0, 0, 0, 2, 1, 0, 0, 0, 10, 1, 20, 0, 0, 0, 2, 1, 0, 0, 0, 11, 0, 5, 0, 0, 0,
-            118, 97, 108, 117, 101,
+            50, 0, 0, 0, 0, 1, 16, 0, 0, 0, 112, 97, 116, 104, 144, 1, 0, 0, 0, 0, 0, 0, 0, 2, 1,
+            0, 0, 0, 10, 1, 20, 0, 0, 0, 2, 1, 0, 0, 0, 11, 0, 5, 0, 0, 0, 118, 97, 108, 117, 101
         ]
     );
 }
@@ -28,8 +30,8 @@ pub fn node_serialization_works() {
 #[test]
 pub fn node_deserialization_works() {
     let buffer = [
-        33, 0, 0, 0, 0, 0, 2, 1, 0, 0, 0, 10, 1, 20, 0, 0, 0, 2, 1, 0, 0, 0, 11, 0, 5, 0, 0, 0,
-        118, 97, 108, 117, 101,
+        50, 0, 0, 0, 0, 1, 16, 0, 0, 0, 112, 97, 116, 104, 144, 1, 0, 0, 0, 0, 0, 0, 0, 2, 1, 0, 0,
+        0, 10, 1, 20, 0, 0, 0, 2, 1, 0, 0, 0, 11, 0, 5, 0, 0, 0, 118, 97, 108, 117, 101,
     ];
     let node = FileBTreeNode::deserialize(&buffer);
     assert!(node.is_ok());
@@ -68,4 +70,8 @@ pub fn node_deserialization_works() {
         },
         "value"
     );
+
+    assert!(node.parent().is_some());
+    assert_eq!(node.parent().unwrap().path(), "path");
+    assert_eq!(node.parent().unwrap().offset(), 400);
 }
